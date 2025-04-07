@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use async_trait::async_trait;
 use burn::prelude::{Backend, Tensor};
 use burn::tensor::Shape;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use hibachi_core::{Batcher, AsyncItemStream};
 use crate::batch_item::{max_seq_len_for_batch_items, BatchItem};
 use crate::forward::Forward;
@@ -21,6 +23,7 @@ where B: Backend
     batch_size: usize,
     active_count: Arc<Mutex<usize>>,
     waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
+    work_notifier: Arc<Notify>,
 }
 
 impl <B, const S: usize> BatchedRegressiveInference<B, S>
@@ -31,7 +34,8 @@ where B: Backend {
     ) -> Self {
         let waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>> = Default::default();
         let running = Arc::new(AtomicBool::new(true));
-        let active_count= Arc::new(Mutex::new(0));
+        let active_count = Arc::new(Mutex::new(0));
+        let work_notifier = Arc::new(Notify::new());
 
         let device = stop_token.device();
         let stop_token_dims = stop_token.dims();
@@ -46,6 +50,7 @@ where B: Backend {
         let running_clone = running.clone();
         let active_count_clone = active_count.clone();
         let waiting_clone = waiting_requests.clone();
+        let work_notifier_clone = work_notifier.clone();
         let background_task = Some(tokio::spawn(async move {
             Self::run_inference_loop_batch_item(
                 Arc::new(model),
@@ -53,7 +58,8 @@ where B: Backend {
                 running_clone,
                 stop_token,
                 active_count_clone,
-                waiting_clone
+                waiting_clone,
+                work_notifier_clone
             ).await;
         }));
         Self {
@@ -62,7 +68,8 @@ where B: Backend {
             background_task,
             batch_size: S,
             active_count,
-            waiting_requests
+            waiting_requests,
+            work_notifier,
         }
     }
 
@@ -73,24 +80,62 @@ where B: Backend {
         stop_token: Tensor<B, 1>,
         active_count: Arc<Mutex<usize>>,
         waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
+        work_notifier: Arc<Notify>,
     ) {
         let mut batch_items: [Option<BatchItem<B>>; S] = [ const {None}; S];
+
         while running.load(Ordering::SeqCst) {
+            // Check if there's work to do (either active items or waiting requests)
+            let should_process = Self::should_process(active_count.clone(), waiting_requests.clone()).await;
+
+            if !should_process {
+                // No work to do, wait for notification or check periodically
+                let timeout = tokio::time::timeout(
+                    Duration::from_millis(100),
+                    work_notifier.notified()
+                ).await;
+
+                if timeout.is_err() {
+                    // Timeout occurred, loop back and check again
+                    continue;
+                }
+            }
+
             let items = Self::drain_possible_requests(
                 S, waiting_requests.clone(), active_count.clone()
             ).await;
 
-            let mut lock = active_tensor.lock();
-            if let mut t = lock.await {
-                Self::push_new_requests(&mut t, items, &mut batch_items).await;
-                let input = (*t).clone();
+            // If we have items to process or active tensors, do work
+            if !items.is_empty() || {
+                let active = active_count.lock().await;
+                *active > 0
+            } {
+                let mut lock = active_tensor.lock().await;
+                Self::push_new_requests(&mut lock, items, &mut batch_items).await;
+                let input = (*lock).clone();
                 let output = model.forward(input.clone());
                 Self::update_sequence_lengths(&mut batch_items).await;
                 Self::send_outputs_to_stream(output.clone(), &batch_items).await;
                 let mut concatenated = concat_output(input, output.clone());
                 Self::update_state_for_output(&mut concatenated, &output, &stop_token, &mut batch_items, active_count.clone()).await;
-                *t = concatenated;
+                *lock = concatenated;
             }
+        }
+    }
+
+    #[inline]
+    async fn should_process(
+        active_count: Arc<Mutex<usize>>,
+        waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>
+    ) -> bool {
+        let active = active_count.lock().await;
+        let has_active_items = *active > 0;
+
+        if has_active_items {
+            true
+        } else {
+            let waiting = waiting_requests.lock().await;
+            !waiting.is_empty()
         }
     }
 
@@ -100,7 +145,7 @@ where B: Backend {
         batch_items: &mut [Option<BatchItem<B>>; S],
     ) {
         for (idx, item) in batch_items.iter_mut().enumerate() {
-            if new_queue_items.len() == 0 {return};
+            if new_queue_items.is_empty() {return};
             match &item {
                 None => {
                     let pop = new_queue_items.pop().expect("Expected a queue item");
@@ -154,9 +199,9 @@ where B: Backend {
                         Some(slice) => {
                             match item.sender.send(slice.clone()) {
                                 Ok(_) => {}
-                                Err(e) => {
-                                    // TODO: no panic here
-                                    panic!("Undefined behavior for send failure");
+                                Err(_) => {
+                                    // TODO: we should close the slot and let someone else take
+                                    eprintln!("Failed to send output to stream; receiver likely dropped");
                                 }
                             }
                         }
@@ -204,13 +249,9 @@ where B: Backend {
 
 
     async fn update_sequence_lengths(batch_items: &mut [Option<BatchItem<B>>; S]) {
-        for (idx, batch_item) in batch_items.iter_mut().enumerate() {
-            match batch_item {
-                None => {}
-                Some(item) => {
-                    item.sequence_length += 1;
-
-                }
+        for batch_item in batch_items.iter_mut() {
+            if let Some(item) = batch_item {
+                item.sequence_length += 1;
             }
         }
     }
@@ -243,6 +284,8 @@ where B: Backend {
     fn shutdown(&mut self) {
         // Signal the background task to stop
         self.running.store(false, Ordering::SeqCst);
+        // Notify the worker to wake up and check the running flag
+        self.work_notifier.notify_one();
 
         // Await the background task if it exists
         if let Some(task) = self.background_task.take() {
@@ -264,16 +307,20 @@ where B: Backend {
 
 #[async_trait]
 impl <B, const S: usize> Batcher<Tensor<B, 2>, Tensor<B, 1>> for BatchedRegressiveInference<B, S>
-    where B: Backend {
+where B: Backend {
     async fn run(&self, item: Tensor<B, 2>) -> AsyncItemStream<Tensor<B, 1>> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem {
             input: item,
             sender: tx,
         };
-        if let mut senders = self.waiting_requests.lock().await {
+        {
+            let mut senders = self.waiting_requests.lock().await;
             senders.push(queue_item);
         }
+        // Notify the worker that new work is available
+        self.work_notifier.notify_one();
+
         let item_stream = AsyncItemStream::new(rx);
         item_stream
     }
