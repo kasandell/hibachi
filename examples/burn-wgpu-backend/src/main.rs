@@ -27,6 +27,7 @@ async fn main() {
         model,
         stop_token,
     ));
+
     let handles = (0..100).into_iter().map(|e| {
         let device = device.clone();
         let bic = bi.clone();
