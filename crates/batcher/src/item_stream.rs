@@ -22,8 +22,6 @@ impl <T> Stream for AsyncItemStream<T> {
     type Item = T;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // IDK if i need to pin
         Pin::new(&mut self.get_mut().receiver).poll_recv(cx)
-        //self.receiver.poll_recv(cx)
     }
 }
