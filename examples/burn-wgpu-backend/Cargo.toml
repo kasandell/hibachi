@@ -1,11 +1,10 @@
 [package]
-name = "run-burn"
+name = "burn-wgpu-backend"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-batcher = { version = "0.1.0", path = "../../crates/batcher" }
-burn-batcher = {version = "0.1.0", path = "../../crates/burn-batcher"}
+hibachi = { version = "0.1.0", path = "../../crates/hibachi", features = ["burn"] }
 tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
 burn = { version = "0.16.0", features = ["wgpu"]}
 futures = { version = "0.3.31" }

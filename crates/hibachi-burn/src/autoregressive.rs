@@ -6,7 +6,7 @@ use burn::prelude::{Backend, Tensor};
 use burn::tensor::Shape;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
-use batcher::{Batcher, AsyncItemStream};
+use hibachi_core::{Batcher, AsyncItemStream};
 use crate::batch_item::{max_seq_len_for_batch_items, BatchItem};
 use crate::forward::Forward;
 use crate::queue_item::QueueItem;

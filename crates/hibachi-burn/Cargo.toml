@@ -1,0 +1,15 @@
+[package]
+name = "hibachi-burn"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+
+burn = "0.16.0"
+hibachi-core = { version = "0.1.0", path = "../hibachi-core" }
+

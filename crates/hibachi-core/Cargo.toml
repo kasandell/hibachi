@@ -1,0 +1,10 @@
+[package]
+name = "hibachi-core"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
