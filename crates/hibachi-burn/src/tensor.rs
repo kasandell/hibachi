@@ -36,10 +36,10 @@ pub(crate) fn where_equals_stop_token<B>(
 /// Assuming that input is of shape (batch, seq, tok), and output is of (batch, tok)
 pub(crate) fn concat_output<B>(input: Tensor<B, 3>, output: Tensor<B, 2>) -> Tensor<B, 3>
 where B: Backend{
-    let concatenated = Tensor::cat(
+    
+    Tensor::cat(
         vec![ input, output.unsqueeze_dim(1)], 1
-    );
-    concatenated
+    )
 }
 
 
