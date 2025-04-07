@@ -1,0 +1,13 @@
+[package]
+name = "run-burn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+batcher = { version = "0.1.0", path = "../../crates/batcher", features = ["async"]}
+burn-batcher = {version = "0.1.0", path = "../../crates/burn-batcher"}
+tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
+burn = { version = "0.16.0", features = ["wgpu"]}
+futures = { version = "0.3.31" }
+async-trait = "0.1.88"
+rand = "0.8.5"

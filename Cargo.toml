@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "crates/batcher",
+    "crates/burn-batcher", "examples/run-burn"
+]
+resolver = "2"
+
+
+[workspace.dependencies]
+
