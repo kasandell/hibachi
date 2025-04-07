@@ -1,12 +1,11 @@
 mod model;
 
 use std::sync::Arc;
-use tokio;
 use burn::backend::wgpu::{Wgpu, WgpuDevice};
 use burn::tensor::Tensor;
 use hibachi::BatchedRegressiveInference;
 use hibachi::Forward;
-use futures::stream::{Stream, StreamExt};
+use futures::stream::StreamExt;
 use hibachi::Batcher;
 use crate::model::Model;
 
@@ -23,15 +22,16 @@ async fn main() {
         &device,
     );
 
-    let mut bi = Arc::new(BatchedRegressiveInference::<Backend, 10>::new(
+    let bi = Arc::new(BatchedRegressiveInference::<Backend, 10>::new(
         model,
         stop_token,
     ));
 
-    let handles = (0..100).into_iter().map(|e| {
+    let handles = (0..100).map(|e| {
         let device = device.clone();
         let bic = bi.clone();
-        let h = tokio::spawn(async move {
+
+        tokio::spawn(async move {
             async {
                 let toks = Tensor::<Backend, 2>::from_data(
                     [
@@ -41,13 +41,12 @@ async fn main() {
                 );
                 let mut it = bic.clone().run(toks).await;
                 let mut count = 0;
-                while let Some(tok) = it.next().await {
+                while let Some(_tok) = it.next().await {
                     count+=1;
                 }
                 println!("Index {} count {}", e, count);
             }.await
-        });
-        return h;
+        })
     }).collect::<Vec<_>>();  // Collect into Vec to avoid lazy evaluation
 
     // Wait for all tasks to complete

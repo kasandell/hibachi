@@ -7,7 +7,6 @@ use burn::prelude::{Backend, Tensor};
 use burn::tensor::Shape;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
 use hibachi_core::{Batcher, AsyncItemStream};
 use crate::batch_item::{max_seq_len_for_batch_items, BatchItem};
 use crate::forward::Forward;
@@ -20,8 +19,6 @@ where B: Backend
     _marker: PhantomData<B>,
     running: Arc<AtomicBool>,
     background_task: Option<JoinHandle<()>>,
-    batch_size: usize,
-    active_count: Arc<Mutex<usize>>,
     waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
     work_notifier: Arc<Notify>,
 }
@@ -66,8 +63,6 @@ where B: Backend {
             _marker: PhantomData,
             running,
             background_task,
-            batch_size: S,
-            active_count,
             waiting_requests,
             work_notifier,
         }
@@ -146,19 +141,15 @@ where B: Backend {
     ) {
         for (idx, item) in batch_items.iter_mut().enumerate() {
             if new_queue_items.is_empty() {return};
-            match &item {
-                None => {
-                    let pop = new_queue_items.pop().expect("Expected a queue item");
-                    let batch_item = BatchItem {
-                        slot: idx,
-                        sequence_length: pop.input.shape().dims[0],
-                        sender: pop.sender,
-                    };
-                    *item = Some(batch_item);
-                    Self::set_slot_in_active_tensor(active_tensor, pop.input, idx).await;}
-                Some(_) => {
-                }
-            }
+            if item.is_none() {
+            let pop = new_queue_items.pop().expect("Expected a queue item");
+            let batch_item = BatchItem {
+                slot: idx,
+                sequence_length: pop.input.shape().dims[0],
+                sender: pop.sender,
+            };
+            *item = Some(batch_item);
+            Self::set_slot_in_active_tensor(active_tensor, pop.input, idx).await;}
         }
 
         assert_eq!(new_queue_items.len(), 0, "Should be no outstanding queue items!!!");
@@ -228,17 +219,15 @@ where B: Backend {
         let zeros = Tensor::zeros(Shape::from([1, current_dims[1], current_dims[2]]), &inputs.device());
 
         let mut ended = 0;
-        let mut max_sequence_length = max_seq_len_for_batch_items(batch_items);
-
         where_end.iter().for_each(|&i| {
-            if batch_items[i] != None {
+            if batch_items[i].is_some() {
                 ended += 1;
             }
             batch_items[i] = None;
             *inputs = inputs.clone().slice_assign([0..1, 0..current_dims[1], 0..current_dims[2]], zeros.clone());
         });
 
-        max_sequence_length = max_seq_len_for_batch_items(batch_items);
+        let max_sequence_length = max_seq_len_for_batch_items(batch_items);
         *inputs = trim_sequence(inputs, max_sequence_length);
 
         {
@@ -321,7 +310,7 @@ where B: Backend {
         // Notify the worker that new work is available
         self.work_notifier.notify_one();
 
-        let item_stream = AsyncItemStream::new(rx);
-        item_stream
+
+        AsyncItemStream::new(rx)
     }
 }

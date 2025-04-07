@@ -1,6 +1,6 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use tokio::sync::mpsc;
 
 
