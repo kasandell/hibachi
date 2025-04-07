@@ -4,10 +4,10 @@ use std::sync::Arc;
 use tokio;
 use burn::backend::wgpu::{Wgpu, WgpuDevice};
 use burn::tensor::Tensor;
-use burn_batcher::BatchedRegressiveInference;
-use burn_batcher::Forward;
+use hibachi::BatchedRegressiveInference;
+use hibachi::Forward;
 use futures::stream::{Stream, StreamExt};
-use batcher::Batcher;
+use hibachi::Batcher;
 use crate::model::Model;
 
 type Backend = Wgpu;

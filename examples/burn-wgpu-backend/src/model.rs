@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use burn::prelude::{Backend, Tensor};
-use burn_batcher::Forward;
+use hibachi::Forward;
 use async_trait::async_trait;
 use burn::tensor::Shape;
 use rand::{thread_rng, Rng};

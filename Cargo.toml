@@ -1,10 +1,19 @@
 [workspace]
 members = [
-    "crates/batcher",
-    "crates/burn-batcher", "examples/run-burn"
+    "crates/*",
+    "examples/*"
 ]
 resolver = "2"
 
 
-[workspace.dependencies]
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+version = "0.1.0"
 
+
+[workspace.dependencies]
+async-trait = { version = "0.1.88" }
+futures = {version = "0.3.31" }
+tokio = { version = "1.44.1", features = ["sync", "time", "rt"] }

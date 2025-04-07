@@ -1,0 +1,13 @@
+[package]
+name = "hibachi"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+
+[features]
+burn = ["dep:hibachi-burn"]
+
+[dependencies]
+hibachi-core = {version = "0.1.0", path = "../hibachi-core"}
+hibachi-burn = {version = "0.1.0", path = "../hibachi-burn", optional = true}
