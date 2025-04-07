@@ -10,5 +10,5 @@ burn = "0.16.0"
 tokio = { version = "1.44.1", features = ["sync", "time", "rt"] }
 futures = {version = "0.3.31" }
 async-trait = { version = "0.1.88" }
-batcher = { version = "0.1.0", path = "../batcher", features = ["async"]}
+batcher = { version = "0.1.0", path = "../batcher" }
 

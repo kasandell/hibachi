@@ -1,6 +1,10 @@
-mod burn;
+mod autoregressive;
+mod batch_item;
+mod forward;
+mod tensor;
+mod queue_item;
 
-pub use burn::{
+pub use {
     autoregressive::BatchedRegressiveInference,
     forward::Forward
 };
