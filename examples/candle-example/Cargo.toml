@@ -1,0 +1,14 @@
+[package]
+name = "candle-example"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+
+[dependencies]
+candle-core = "0.8.4"
+hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle"]}
+tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
+futures = { version = "0.3.31" }
+async-trait = "0.1.88"
+rand = "0.8.5"
