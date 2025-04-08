@@ -36,10 +36,10 @@ where B: Backend {
 
         let device = stop_token.device();
         let stop_token_dims = stop_token.dims();
-        let token_size = stop_token_dims[0];
+        //let token_size = stop_token_dims[0];
         let active_tensor = Arc::new(Mutex::new(
-            Tensor::<B, 3>::zeros(
-                Shape::new([S, 1, token_size]),
+            Tensor::<B, 2>::zeros(
+                Shape::new([S, 1]),
                 &device
             )
         ));
@@ -70,7 +70,7 @@ where B: Backend {
 
     async fn run_inference_loop_batch_item(
         model: Arc<Box<dyn Forward<B> + Send + Sync>>,
-        active_tensor: Arc<Mutex<Tensor<B, 3>>>,
+        active_tensor: Arc<Mutex<Tensor<B, 2>>>,
         running: Arc<AtomicBool>,
         stop_token: Tensor<B, 1>,
         active_count: Arc<Mutex<usize>>,
@@ -135,7 +135,7 @@ where B: Backend {
     }
 
     async fn push_new_requests(
-        active_tensor: &mut Tensor<B, 3>,
+        active_tensor: &mut Tensor<B, 2>,
         mut new_queue_items: Vec<QueueItem<B>>,
         batch_items: &mut [Option<BatchItem<B>>; S],
     ) {
@@ -156,26 +156,30 @@ where B: Backend {
     }
 
     async fn set_slot_in_active_tensor(
-        active_tensor: &mut Tensor<B, 3>,
-        request_tensor: Tensor<B, 2>,
+        active_tensor: &mut Tensor<B, 2>,
+        request_tensor: Tensor<B, 1>,
         index: usize
     ) {
         let sequence_dims = request_tensor.dims();
-        let (seq_len, seq_tok_width) = (sequence_dims[0], sequence_dims[1]);
+        let seq_len = sequence_dims[0];
         let active_dims = active_tensor.dims();
-        let (batch_len, batch_tok_width) = (active_dims[1], active_dims[2]);
-        assert_eq!(seq_tok_width, batch_tok_width, "tokens must be same size");
+        let mut batch_len = active_dims[1];
+        //assert_eq!(seq_tok_width, batch_tok_width, "tokens must be same size");
 
         if seq_len > batch_len {
             // need to expand active tensor length at the front with padding
+            let diff = seq_len - batch_len;
             zero_pad_sequence(active_tensor, seq_len - batch_len);
+            batch_len += diff;
+
+
         }
         // active tensor now big enough to fit. good
-        *active_tensor = active_tensor.clone().slice_assign([index..index+1, batch_len-seq_len..batch_len, 0..seq_tok_width], request_tensor.clone().unsqueeze_dim(0));
+        *active_tensor = active_tensor.clone().slice_assign([index..index+1, (batch_len-seq_len)..batch_len], request_tensor.clone().unsqueeze_dim(0));
     }
 
     async fn send_outputs_to_stream(
-        outputs: Tensor<B, 2>,
+        outputs: Tensor<B, 1>,
         batch_items: &[Option<BatchItem<B>>; S],
     ) {
         let sliced = slice_tensor_by_batch_dimension::<B, S>(outputs);
@@ -204,8 +208,8 @@ where B: Backend {
 
 
     async fn update_state_for_output(
-        inputs: &mut Tensor<B, 3>,
-        output: &Tensor<B, 2>,
+        inputs: &mut Tensor<B, 2>,
+        output: &Tensor<B, 1>,
         stop_token: &Tensor<B, 1>,
         batch_items: &mut [Option<BatchItem<B>>; S],
         active_sequence_count: Arc<Mutex<usize>>
@@ -216,7 +220,7 @@ where B: Backend {
             return
         }
         let current_dims = inputs.shape().dims;
-        let zeros = Tensor::zeros(Shape::from([1, current_dims[1], current_dims[2]]), &inputs.device());
+        let zeros = Tensor::zeros(Shape::from([1, current_dims[1]]), &inputs.device());
 
         let mut ended = 0;
         where_end.iter().for_each(|&i| {
@@ -224,7 +228,7 @@ where B: Backend {
                 ended += 1;
             }
             batch_items[i] = None;
-            *inputs = inputs.clone().slice_assign([0..1, 0..current_dims[1], 0..current_dims[2]], zeros.clone());
+            *inputs = inputs.clone().slice_assign([0..1, 0..current_dims[1]], zeros.clone());
         });
 
         let max_sequence_length = max_seq_len_for_batch_items(batch_items);
@@ -295,9 +299,9 @@ where B: Backend {
 
 
 #[async_trait]
-impl <B, const S: usize> Batcher<Tensor<B, 2>, Tensor<B, 1>> for BatchedRegressiveInference<B, S>
+impl <B, const S: usize> Batcher<Tensor<B, 1>, Tensor<B, 1>> for BatchedRegressiveInference<B, S>
 where B: Backend {
-    async fn run(&self, item: Tensor<B, 2>) -> AsyncItemStream<Tensor<B, 1>> {
+    async fn run(&self, item: Tensor<B, 1>) -> AsyncItemStream<Tensor<B, 1>> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem {
             input: item,

@@ -23,18 +23,18 @@ impl <B> Model<B>
 #[async_trait]
 impl <B> Forward<B> for Model<B>
 where B: Backend {
-    fn forward(&self, tensor: Tensor<B, 3>) -> Tensor<B, 2> {
+    fn forward(&self, tensor: Tensor<B, 2>) -> Tensor<B, 1> {
         // Extract the dimensions we need
         let batch_size = tensor.shape().dims[0];
-        let token_size = tensor.shape().dims[2];
+        //let token_size = tensor.shape().dims[2];
 
         let mut rng = thread_rng();
-        let val = rng.gen_range(0..(batch_size/2));
-        let mut zeros = Tensor::<B, 2>::zeros(Shape::new([batch_size, token_size]), &tensor.device());
-        let ones = Tensor::<B, 2>::ones(Shape::new([1, token_size]), &tensor.device());
+        let val = rng.gen_range(0..2);
+        let mut zeros = Tensor::<B, 1>::zeros(Shape::new([batch_size]), &tensor.device());
+        let ones = Tensor::<B, 1>::ones(Shape::new([1]), &tensor.device());
         for _ in 0..val {
             let idx = rng.gen_range(0..batch_size);
-            zeros = zeros.slice_assign([idx..idx+1, 0..token_size], ones.clone());
+            zeros = zeros.slice_assign([idx..idx+1], ones.clone());
         }
         zeros
     }
