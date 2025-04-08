@@ -18,7 +18,7 @@ async fn main() {
 
 
     let stop_token = Tensor::<Backend, 1>::from_data(
-        [1, 1, 1],
+        [1,],
         &device,
     );
 
@@ -33,10 +33,8 @@ async fn main() {
 
         tokio::spawn(async move {
             async {
-                let toks = Tensor::<Backend, 2>::from_data(
-                    [
-                        [1, 1, 0],
-                    ],
+                let toks = Tensor::<Backend, 1>::from_data(
+                        [2, 2, 0],
                     &device,
                 );
                 let mut it = bic.clone().run(toks).await;

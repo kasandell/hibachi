@@ -5,6 +5,9 @@ license.workspace = true
 readme.workspace = true
 version.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 burn = ["dep:hibachi-burn"]
 
