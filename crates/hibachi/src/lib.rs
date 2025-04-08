@@ -1,4 +1,5 @@
 pub use hibachi_core::*;
 
-#[cfg(feature = "burn")]
+#[cfg(any(feature = "burn", doc))]
+//#[doc(cfg(feature = "burn"))]
 pub use hibachi_burn::*;
