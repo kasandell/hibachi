@@ -4,18 +4,22 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use hibachi_core::{Batcher, AsyncItemStream};
-use crate::batch_item::{max_seq_len_for_batch_items, BatchItem};
-use crate::forward::CandleForward;
-use crate::queue_item::QueueItem;
+use hibachi_core::{AutoregressiveBatcher, AsyncItemStream, Autoregressive};
+use hibachi_core::{BatchItem, QueueItem};
 use crate::tensor::*;
 use candle_core::Tensor;
+use tokio::time::error::Elapsed;
+
+type Tensor1D = Tensor;
+type Tensor2D = Tensor;
+type QueueItemType = QueueItem<Tensor1D, Tensor1D>;
+type BatchItemType = BatchItem<Tensor1D>;
 
 pub struct BatchedRegressiveInference<const S: usize>
 {
     running: Arc<AtomicBool>,
     background_task: Option<JoinHandle<()>>,
-    waiting_requests: Arc<Mutex<Vec<QueueItem>>>,
+    waiting_requests: Arc<Mutex<Vec<QueueItemType>>>,
     work_notifier: Arc<Notify>,
 }
 
@@ -23,11 +27,11 @@ impl <const S: usize> BatchedRegressiveInference<S> {
     /// Instantiate a new batched regressive inference engine on top of `model`,
     /// stopping when we hit stop_token.
     pub fn new(
-        model: Box<dyn CandleForward + Send + Sync>,
+        model: Box<dyn Autoregressive<Sequence=Tensor2D, Output=Tensor1D> + Send>,
         stop_token: Tensor
     ) -> Self {
 
-        let waiting_requests: Arc<Mutex<Vec<QueueItem>>> = Default::default();
+        let waiting_requests: Arc<Mutex<Vec<QueueItemType>>> = Default::default();
         let running = Arc::new(AtomicBool::new(true));
         let active_count = Arc::new(Mutex::new(0));
         let work_notifier = Arc::new(Notify::new());
@@ -51,7 +55,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
         let work_notifier_clone = work_notifier.clone();
         let background_task = Some(tokio::spawn(async move {
             Self::run_inference_loop_batch_item(
-                Arc::new(model),
+                model,
                 active_tensor,
                 running_clone,
                 stop_token,
@@ -69,15 +73,15 @@ impl <const S: usize> BatchedRegressiveInference<S> {
     }
 
     async fn run_inference_loop_batch_item(
-        model: Arc<Box<dyn CandleForward + Send + Sync>>,
+        model: Box<dyn Autoregressive<Sequence=Tensor2D, Output=Tensor1D> + Send>,
         active_tensor: Arc<Mutex<Tensor>>,
         running: Arc<AtomicBool>,
         stop_token: Tensor,
         active_count: Arc<Mutex<usize>>,
-        waiting_requests: Arc<Mutex<Vec<QueueItem>>>,
+        waiting_requests: Arc<Mutex<Vec<QueueItemType>>>,
         work_notifier: Arc<Notify>,
     ) {
-        let mut batch_items: [Option<BatchItem>; S] = [ const {None}; S];
+        let mut batch_items: [Option<BatchItemType>; S] = [ const {None}; S];
 
         while running.load(Ordering::SeqCst) {
             // Check if there's work to do (either active items or waiting requests)
@@ -85,11 +89,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
 
             if !should_process {
                 // No work to do, wait for notification or check periodically
-                let timeout = tokio::time::timeout(
-                    Duration::from_millis(100),
-                    work_notifier.notified()
-                ).await;
-
+                let timeout = Self::timeout_await_notifier(&work_notifier);
                 if timeout.is_err() {
                     // Timeout occurred, loop back and check again
                     continue;
@@ -121,9 +121,17 @@ impl <const S: usize> BatchedRegressiveInference<S> {
     }
 
     #[inline]
+    async fn timeout_await_notifier(notifier: &Notify) -> Result<(), Elapsed>{
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            notifier.notified()
+        ).await
+    }
+
+    #[inline]
     async fn should_process(
         active_count: Arc<Mutex<usize>>,
-        waiting_requests: Arc<Mutex<Vec<QueueItem>>>
+        waiting_requests: Arc<Mutex<Vec<QueueItemType>>>
     ) -> bool {
         let active = active_count.lock().await;
         let has_active_items = *active > 0;
@@ -138,20 +146,20 @@ impl <const S: usize> BatchedRegressiveInference<S> {
 
     async fn push_new_requests(
         active_tensor: &mut Tensor,
-        mut new_queue_items: Vec<QueueItem>,
-        batch_items: &mut [Option<BatchItem>; S],
+        mut new_queue_items: Vec<QueueItemType>,
+        batch_items: &mut [Option<BatchItemType>; S],
     ) {
         for (idx, item) in batch_items.iter_mut().enumerate() {
             if new_queue_items.is_empty() {return};
             if item.is_none() {
             let pop = new_queue_items.pop().expect("Expected a queue item");
-            let batch_item = BatchItem {
-                slot: idx,
-                sequence_length: pop.input.shape().dims()[0],
-                sender: pop.sender,
-            };
+            let batch_item = BatchItem::new(
+                idx,
+                pop.input().shape().dims()[0],
+                pop.sender().clone(),
+            );
             *item = Some(batch_item);
-            Self::set_slot_in_active_tensor(active_tensor, pop.input, idx).await;}
+            Self::set_slot_in_active_tensor(active_tensor, pop.input(), idx).await;}
         }
 
         assert_eq!(new_queue_items.len(), 0, "Should be no outstanding queue items!!!");
@@ -159,7 +167,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
 
     async fn set_slot_in_active_tensor(
         active_tensor: &mut Tensor,
-        request_tensor: Tensor,
+        request_tensor: &Tensor,
         index: usize
     ) {
         let sequence_dims = request_tensor.dims();
@@ -188,7 +196,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
 
     async fn send_outputs_to_stream(
         outputs: Tensor,
-        batch_items: &[Option<BatchItem>; S],
+        batch_items: &[Option<BatchItemType>; S],
     ) {
         let sliced = slice_tensor_by_batch_dimension::<S>(outputs);
         batch_items.iter().enumerate().for_each(|(idx, e)| {
@@ -200,7 +208,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
                             panic!("Unable to slice index {}", idx);
                         }
                         Some(slice) => {
-                            match item.sender.send(slice.clone()) {
+                            match item.sender().send(slice.clone()) {
                                 Ok(_) => {}
                                 Err(_) => {
                                     // TODO: we should close the slot and let someone else take
@@ -219,7 +227,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
         inputs: &mut Tensor,
         output: &Tensor,
         stop_token: &Tensor,
-        batch_items: &mut [Option<BatchItem>; S],
+        batch_items: &mut [Option<BatchItemType>; S],
         active_sequence_count: Arc<Mutex<usize>>
     ) {
         let where_end = where_equals_stop_token(output, stop_token);
@@ -242,7 +250,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
                 .expect("update state inputs slice assign");
         });
 
-        let max_sequence_length = max_seq_len_for_batch_items(batch_items);
+        let max_sequence_length = BatchItem::max_seq_len_for_batch_items(batch_items);
         *inputs = trim_sequence(inputs, max_sequence_length);
 
         {
@@ -252,19 +260,19 @@ impl <const S: usize> BatchedRegressiveInference<S> {
     }
 
 
-    async fn update_sequence_lengths(batch_items: &mut [Option<BatchItem>; S]) {
+    async fn update_sequence_lengths(batch_items: &mut [Option<BatchItemType>; S]) {
         for batch_item in batch_items.iter_mut() {
             if let Some(item) = batch_item {
-                item.sequence_length += 1;
+                item.increment_sequence_length(1);
             }
         }
     }
 
     async fn drain_possible_requests(
         batch_size: usize,
-        waiting_requests: Arc<Mutex<Vec<QueueItem>>>,
+        waiting_requests: Arc<Mutex<Vec<QueueItemType>>>,
         active_count: Arc<Mutex<usize>>,
-    ) -> Vec<QueueItem> {
+    ) -> Vec<QueueItemType> {
         // TODO: this is probably inefficient on locking. we really just want to peek at batch size and active count
         // before we even get to the requests lock
         let mut requests = waiting_requests.lock().await;
@@ -308,13 +316,13 @@ impl <const S: usize> Drop for BatchedRegressiveInference<S> {
 
 
 #[async_trait]
-impl <const S: usize> Batcher<Tensor, Tensor> for BatchedRegressiveInference<S> {
+impl <const S: usize> AutoregressiveBatcher<Tensor, Tensor> for BatchedRegressiveInference<S> {
     async fn run(&self, item: Tensor) -> AsyncItemStream<Tensor> {
         let (tx, rx) = mpsc::unbounded_channel();
-        let queue_item = QueueItem {
-            input: item,
-            sender: tx,
-        };
+        let queue_item = QueueItem::new(
+            item,
+            tx,
+        );
         {
             let mut senders = self.waiting_requests.lock().await;
             senders.push(queue_item);

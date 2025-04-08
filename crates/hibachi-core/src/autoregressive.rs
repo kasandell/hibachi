@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use candle_core::Tensor;
 
 /// The forward trait that all models wanting to use the batched interface must implement.
 /// Requires input of a rank 3 tensor, and guarantees output of a rank 2 tensor
@@ -11,6 +10,9 @@ use candle_core::Tensor;
 /// [batch_size] token_ids or even potentially we force the selection of the token, so it is really
 /// [batch_size, seq_len] -> [batch_size] -> [seq_len]
 #[async_trait]
-pub trait CandleForward {
-    async fn forward(&self, tensor: Tensor) -> Tensor;
+pub trait Autoregressive {
+    type Sequence;
+    type Output;
+
+    async fn forward(&self, tensor: Self::Sequence) -> Self::Output;
 }

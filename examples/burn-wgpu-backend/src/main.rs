@@ -4,17 +4,19 @@ use std::sync::Arc;
 use burn::backend::wgpu::{Wgpu, WgpuDevice};
 use burn::tensor::Tensor;
 use hibachi::BatchedRegressiveInference;
-use hibachi::Forward;
+use hibachi::Autoregressive;
 use futures::stream::StreamExt;
-use hibachi::Batcher;
+use hibachi::AutoregressiveBatcher;
 use crate::model::Model;
 
 type Backend = Wgpu;
+type Tensor1D = Tensor<Backend, 1>;
+type Tensor2D = Tensor<Backend, 2>;
 
 #[tokio::main]
 async fn main() {
     let device = WgpuDevice::DefaultDevice;
-    let model: Box<dyn Forward<Backend> + Send + Sync> = Box::new(Model::<Backend>::new());
+    let model: Box<dyn Autoregressive<Sequence=Tensor2D, Output=Tensor1D> + Send + Sync> = Box::new(Model::<Backend>::new());
 
 
     let stop_token = Tensor::<Backend, 1>::from_data(

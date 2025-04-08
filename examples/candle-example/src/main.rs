@@ -2,16 +2,17 @@ mod model;
 
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
-use hibachi::BatchedRegressiveInference;
-use hibachi::CandleForward;
+use hibachi::{Autoregressive, BatchedRegressiveInference};
 use futures::stream::StreamExt;
-use hibachi::Batcher;
+use hibachi::AutoregressiveBatcher;
 use crate::model::Model;
 
+type Tensor1D = Tensor;
+type Tensor2D = Tensor;
 
 #[tokio::main]
 async fn main() {
-    let model: Box<dyn CandleForward + Send + Sync> = Box::new(Model::new());
+    let model = Box::new(Model::new());
 
 
     let device = Device::Cpu;
@@ -21,12 +22,12 @@ async fn main() {
         &device
     ).unwrap();
 
-    let bi = Arc::new(BatchedRegressiveInference::<10>::new(
+    let bi = Arc::new(BatchedRegressiveInference::<100>::new(
         model,
         stop_token,
     ));
 
-    let handles = (0..100).map(|e| {
+    let handles = (0..1000).map(|e| {
         let bic = bi.clone();
 
         tokio::spawn(async move {
