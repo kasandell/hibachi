@@ -27,7 +27,6 @@ where B: Backend {
         // Extract the dimensions we need
         let batch_size = tensor.shape().dims[0];
         //let token_size = tensor.shape().dims[2];
-
         let mut rng = thread_rng();
         let val = rng.gen_range(0..2);
         let mut zeros = Tensor::<B, 1>::zeros(Shape::new([batch_size]), &tensor.device());

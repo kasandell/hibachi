@@ -25,10 +25,13 @@ where B: Backend
 
 impl <B, const S: usize> BatchedRegressiveInference<B, S>
 where B: Backend {
+    /// Instantiate a new batched regressive inference engine on top of `model`,
+    /// stopping when we hit stop_token.
     pub fn new(
         model: Box<dyn Forward<B> + Send + Sync>,
         stop_token: Tensor<B, 1>
     ) -> Self {
+
         let waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>> = Default::default();
         let running = Arc::new(AtomicBool::new(true));
         let active_count = Arc::new(Mutex::new(0));
@@ -36,7 +39,8 @@ where B: Backend {
 
         let device = stop_token.device();
         let stop_token_dims = stop_token.dims();
-        //let token_size = stop_token_dims[0];
+        let token_size = stop_token_dims[0];
+        assert_eq!(token_size, 1, "token size must be of length 1");
         let active_tensor = Arc::new(Mutex::new(
             Tensor::<B, 2>::zeros(
                 Shape::new([S, 1]),
@@ -248,7 +252,6 @@ where B: Backend {
             }
         }
     }
-
 
     async fn drain_possible_requests(
         batch_size: usize,
