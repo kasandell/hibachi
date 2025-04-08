@@ -20,7 +20,7 @@ async fn main() {
     let tokenizer = model_pre.tokenizer();
     let model: Box<dyn CandleForward + Send + Sync> = Box::new(model_pre);
 
-    let bi = Arc::new(BatchedRegressiveInference::<1>::new(
+    let bi = Arc::new(BatchedRegressiveInference::<2>::new(
         model,
         stop_token,
     ));
@@ -33,7 +33,7 @@ async fn main() {
         tokio::spawn(async move {
             async {
                 let device = Device::Cpu;
-                let sentence = tc.encode("Echo hi", true).expect("ok")
+                let sentence = tc.encode("Echo: 'hi'. Output: ", true).expect("ok")
                     .get_ids()
                     .to_vec();
                 let toks = Tensor::new(sentence, &device).unwrap();//?.unsqueeze(0)?;
@@ -45,7 +45,7 @@ async fn main() {
                     let value = tok.to_vec1::<u32>().expect("ok")[0];
                     //println!("Index {} tok {}", e, value);
                     if let Some(out) = token_stream.next_token(value).unwrap() {
-                        print!("{}", tc.id_to_token(value).unwrap());
+                        print!("{}", tc.id_to_token(value).unwrap().replace("Ġ", " "));
                         let _ = io::stdout().flush();
                     };
                     output.push(value);

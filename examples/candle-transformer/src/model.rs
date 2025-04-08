@@ -2,7 +2,6 @@ use std::sync::Arc;
 use hibachi::CandleForward;
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
-
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
@@ -12,9 +11,6 @@ use candle_transformers::models::llama as model;
 use model::{Llama, LlamaConfig};
 use tokio::sync::Mutex;
 
-//const MODEL_NAME: &str = "SmoLM2-135M";
-//const MODEL_ID: &str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
-//const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-135M";
 const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-1.7B";
 const EOS_TOKEN: &str = "<|endoftext|>";
 
@@ -42,7 +38,6 @@ impl Model {
         let vb = unsafe { VarBuilder::from_mmaped_safetensors(&filenames, dtype, &device).unwrap() };
         let llama = Llama::load(vb, &config).expect("Create llama");
         let tokenizer = Tokenizer::from_file(tokenizer_filename).expect("Create tokenizer");
-        // , tokenizer_filename, cache, config)
 
         let mut logits_processor = {
             let temperature = temperature.unwrap_or(1.0);
@@ -99,14 +94,9 @@ fn batchwise_logits(
 
         // Use the existing LogitsProcessor to process this slice and get the token
         let token = processor.sample(&batch_logits).unwrap();
-
-        // Add the token to our results
         sampled_tokens.push(token);
     }
-
-    // Create a tensor from the sampled tokens
     let out  = Tensor::from_slice(&sampled_tokens, &[batch_size], logits.device()).unwrap();
-    //println!("{:?}", out);
     out
 }
 
