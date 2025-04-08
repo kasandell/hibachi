@@ -1,14 +1,13 @@
 [package]
-name = "hibachi-burn"
-version = "0.1.0"
-edition = "2021"
-resolver = "2"
-
+name = "hibachi-candle"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
-burn = "0.16.0"
+candle-core = { version = "0.8.4" }
 hibachi-core = { version = "0.1.0", path = "../hibachi-core" }
-

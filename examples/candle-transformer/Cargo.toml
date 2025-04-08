@@ -1,0 +1,20 @@
+[package]
+name = "candle-transformer"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+
+[dependencies]
+hf-hub = { version = "0.4.2", features = ["tokio"] }
+candle-nn = "0.8.4"
+candle-transformers = "0.8.4"
+candle-core = "0.8.4"
+hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle"]}
+tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
+futures = { version = "0.3.31" }
+async-trait = "0.1.88"
+rand = "0.8.5"
+serde_json = "1.0.140"
+tokenizers = { version = "0.21.1", features = ["onig"] }
+
