@@ -8,7 +8,7 @@ use candle_core::{Tensor, Device, DType};
 use hibachi::BatchedRegressiveInference;
 use hibachi::Autoregressive;
 use futures::stream::StreamExt;
-use hibachi::Batcher;
+use hibachi::AutoregressiveBatcher;
 use tokenizers::Tokenizer;
 use crate::model::Model;
 use crate::token_output_stream::TokenOutputStream;

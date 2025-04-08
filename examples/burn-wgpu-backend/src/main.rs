@@ -6,7 +6,7 @@ use burn::tensor::Tensor;
 use hibachi::BatchedRegressiveInference;
 use hibachi::Autoregressive;
 use futures::stream::StreamExt;
-use hibachi::Batcher;
+use hibachi::AutoregressiveBatcher;
 use crate::model::Model;
 
 type Backend = Wgpu;

@@ -4,11 +4,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use hibachi_core::{Batcher, AsyncItemStream, Autoregressive};
+use hibachi_core::{AutoregressiveBatcher, AsyncItemStream, Autoregressive};
 use hibachi_core::{BatchItem, QueueItem};
 use crate::tensor::*;
 use candle_core::Tensor;
-
+use tokio::time::error::Elapsed;
 
 type Tensor1D = Tensor;
 type Tensor2D = Tensor;
@@ -89,11 +89,7 @@ impl <const S: usize> BatchedRegressiveInference<S> {
 
             if !should_process {
                 // No work to do, wait for notification or check periodically
-                let timeout = tokio::time::timeout(
-                    Duration::from_millis(100),
-                    work_notifier.notified()
-                ).await;
-
+                let timeout = Self::timeout_await_notifier(&work_notifier);
                 if timeout.is_err() {
                     // Timeout occurred, loop back and check again
                     continue;
@@ -122,6 +118,14 @@ impl <const S: usize> BatchedRegressiveInference<S> {
                 *lock = concatenated;
             }
         }
+    }
+
+    #[inline]
+    async fn timeout_await_notifier(notifier: &Notify) -> Result<(), Elapsed>{
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            notifier.notified()
+        ).await
     }
 
     #[inline]
@@ -312,7 +316,7 @@ impl <const S: usize> Drop for BatchedRegressiveInference<S> {
 
 
 #[async_trait]
-impl <const S: usize> Batcher<Tensor, Tensor> for BatchedRegressiveInference<S> {
+impl <const S: usize> AutoregressiveBatcher<Tensor, Tensor> for BatchedRegressiveInference<S> {
     async fn run(&self, item: Tensor) -> AsyncItemStream<Tensor> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(
