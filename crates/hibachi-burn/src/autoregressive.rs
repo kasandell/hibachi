@@ -7,11 +7,13 @@ use burn::prelude::{Backend, Tensor};
 use burn::tensor::Shape;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use hibachi_core::{Batcher, AsyncItemStream};
-use crate::batch_item::{max_seq_len_for_batch_items, BatchItem};
-use crate::forward::Forward;
-use crate::queue_item::QueueItem;
+use hibachi_core::{Batcher, AsyncItemStream, BatchItem, QueueItem, Autoregressive};
 use crate::tensor::*;
+
+type Tensor1D<B> = Tensor<B, 1>;
+type Tensor2D<B> = Tensor<B, 2>;
+type QueueItemType<B> = QueueItem<Tensor1D<B>, Tensor1D<B>>;
+type BatchItemType<B> = BatchItem<Tensor1D<B>>;
 
 pub struct BatchedRegressiveInference<B, const S: usize>
 where B: Backend
@@ -19,20 +21,21 @@ where B: Backend
     _marker: PhantomData<B>,
     running: Arc<AtomicBool>,
     background_task: Option<JoinHandle<()>>,
-    waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
+    waiting_requests: Arc<Mutex<Vec<QueueItemType<B>>>>,
     work_notifier: Arc<Notify>,
 }
 
 impl <B, const S: usize> BatchedRegressiveInference<B, S>
 where B: Backend {
+
     /// Instantiate a new batched regressive inference engine on top of `model`,
     /// stopping when we hit stop_token.
     pub fn new(
-        model: Box<dyn Forward<B> + Send + Sync>,
-        stop_token: Tensor<B, 1>
+        model: Box<dyn Autoregressive<Sequence=Tensor2D<B>, Output=Tensor1D<B>> + Send>,
+        stop_token: Tensor1D<B>
     ) -> Self {
 
-        let waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>> = Default::default();
+        let waiting_requests: Arc<Mutex<Vec<QueueItemType<B>>>> = Default::default();
         let running = Arc::new(AtomicBool::new(true));
         let active_count = Arc::new(Mutex::new(0));
         let work_notifier = Arc::new(Notify::new());
@@ -42,7 +45,7 @@ where B: Backend {
         let token_size = stop_token_dims[0];
         assert_eq!(token_size, 1, "token size must be of length 1");
         let active_tensor = Arc::new(Mutex::new(
-            Tensor::<B, 2>::zeros(
+            Tensor2D::<B>::zeros(
                 Shape::new([S, 1]),
                 &device
             )
@@ -54,7 +57,7 @@ where B: Backend {
         let work_notifier_clone = work_notifier.clone();
         let background_task = Some(tokio::spawn(async move {
             Self::run_inference_loop_batch_item(
-                Arc::new(model),
+                model,
                 active_tensor,
                 running_clone,
                 stop_token,
@@ -73,15 +76,15 @@ where B: Backend {
     }
 
     async fn run_inference_loop_batch_item(
-        model: Arc<Box<dyn Forward<B> + Send + Sync>>,
-        active_tensor: Arc<Mutex<Tensor<B, 2>>>,
+        model: Box<dyn Autoregressive<Sequence=Tensor2D<B>, Output=Tensor1D<B>> + Send>,
+        active_tensor: Arc<Mutex<Tensor2D<B>>>,
         running: Arc<AtomicBool>,
-        stop_token: Tensor<B, 1>,
+        stop_token: Tensor1D<B>,
         active_count: Arc<Mutex<usize>>,
-        waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
+        waiting_requests: Arc<Mutex<Vec<QueueItemType<B>>>>,
         work_notifier: Arc<Notify>,
     ) {
-        let mut batch_items: [Option<BatchItem<B>>; S] = [ const {None}; S];
+        let mut batch_items: [Option<BatchItem<Tensor1D<B>>>; S] = [ const {None}; S];
 
         while running.load(Ordering::SeqCst) {
             // Check if there's work to do (either active items or waiting requests)
@@ -125,7 +128,7 @@ where B: Backend {
     #[inline]
     async fn should_process(
         active_count: Arc<Mutex<usize>>,
-        waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>
+        waiting_requests: Arc<Mutex<Vec<QueueItemType<B>>>>
     ) -> bool {
         let active = active_count.lock().await;
         let has_active_items = *active > 0;
@@ -139,29 +142,29 @@ where B: Backend {
     }
 
     async fn push_new_requests(
-        active_tensor: &mut Tensor<B, 2>,
-        mut new_queue_items: Vec<QueueItem<B>>,
-        batch_items: &mut [Option<BatchItem<B>>; S],
+        active_tensor: &mut Tensor2D<B>,
+        mut new_queue_items: Vec<QueueItemType<B>>,
+        batch_items: &mut [Option<BatchItemType<B>>; S],
     ) {
         for (idx, item) in batch_items.iter_mut().enumerate() {
             if new_queue_items.is_empty() {return};
             if item.is_none() {
             let pop = new_queue_items.pop().expect("Expected a queue item");
-            let batch_item = BatchItem {
-                slot: idx,
-                sequence_length: pop.input.shape().dims[0],
-                sender: pop.sender,
-            };
+            let batch_item = BatchItem::new(
+                idx,
+                pop.input().shape().dims[0],
+                pop.sender()
+            );
             *item = Some(batch_item);
-            Self::set_slot_in_active_tensor(active_tensor, pop.input, idx).await;}
+            Self::set_slot_in_active_tensor(active_tensor, pop.input(), idx).await;}
         }
 
         assert_eq!(new_queue_items.len(), 0, "Should be no outstanding queue items!!!");
     }
 
     async fn set_slot_in_active_tensor(
-        active_tensor: &mut Tensor<B, 2>,
-        request_tensor: Tensor<B, 1>,
+        active_tensor: &mut Tensor2D<B>,
+        request_tensor: &Tensor1D<B>,
         index: usize
     ) {
         let sequence_dims = request_tensor.dims();
@@ -183,8 +186,8 @@ where B: Backend {
     }
 
     async fn send_outputs_to_stream(
-        outputs: Tensor<B, 1>,
-        batch_items: &[Option<BatchItem<B>>; S],
+        outputs: Tensor1D<B>,
+        batch_items: &[Option<BatchItemType<B>>; S],
     ) {
         let sliced = slice_tensor_by_batch_dimension::<B, S>(outputs);
         batch_items.iter().enumerate().for_each(|(idx, e)| {
@@ -196,7 +199,7 @@ where B: Backend {
                             panic!("Unable to slice index {}", idx);
                         }
                         Some(slice) => {
-                            match item.sender.send(slice.clone()) {
+                            match item.sender().send(slice.clone()) {
                                 Ok(_) => {}
                                 Err(_) => {
                                     // TODO: we should close the slot and let someone else take
@@ -212,10 +215,10 @@ where B: Backend {
 
 
     async fn update_state_for_output(
-        inputs: &mut Tensor<B, 2>,
-        output: &Tensor<B, 1>,
-        stop_token: &Tensor<B, 1>,
-        batch_items: &mut [Option<BatchItem<B>>; S],
+        inputs: &mut Tensor2D<B>,
+        output: &Tensor1D<B>,
+        stop_token: &Tensor1D<B>,
+        batch_items: &mut [Option<BatchItemType<B>>; S],
         active_sequence_count: Arc<Mutex<usize>>
     ) {
         let where_end = where_equals_stop_token(output, stop_token);
@@ -235,7 +238,7 @@ where B: Backend {
             *inputs = inputs.clone().slice_assign([0..1, 0..current_dims[1]], zeros.clone());
         });
 
-        let max_sequence_length = max_seq_len_for_batch_items(batch_items);
+        let max_sequence_length = BatchItem::max_seq_len_for_batch_items(batch_items);
         *inputs = trim_sequence(inputs, max_sequence_length);
 
         {
@@ -245,19 +248,19 @@ where B: Backend {
     }
 
 
-    async fn update_sequence_lengths(batch_items: &mut [Option<BatchItem<B>>; S]) {
+    async fn update_sequence_lengths(batch_items: &mut [Option<BatchItemType<B>>; S]) {
         for batch_item in batch_items.iter_mut() {
             if let Some(item) = batch_item {
-                item.sequence_length += 1;
+                item.increment_sequence_length(1)
             }
         }
     }
 
     async fn drain_possible_requests(
         batch_size: usize,
-        waiting_requests: Arc<Mutex<Vec<QueueItem<B>>>>,
+        waiting_requests: Arc<Mutex<Vec<QueueItemType<B>>>>,
         active_count: Arc<Mutex<usize>>,
-    ) -> Vec<QueueItem<B>> {
+    ) -> Vec<QueueItemType<B>> {
         // TODO: this is probably inefficient on locking. we really just want to peek at batch size and active count
         // before we even get to the requests lock
         let mut requests = waiting_requests.lock().await;
@@ -302,14 +305,14 @@ where B: Backend {
 
 
 #[async_trait]
-impl <B, const S: usize> Batcher<Tensor<B, 1>, Tensor<B, 1>> for BatchedRegressiveInference<B, S>
+impl <B, const S: usize> Batcher<Tensor1D<B>, Tensor1D<B>> for BatchedRegressiveInference<B, S>
 where B: Backend {
-    async fn run(&self, item: Tensor<B, 1>) -> AsyncItemStream<Tensor<B, 1>> {
+    async fn run(&self, item: Tensor1D<B>) -> AsyncItemStream<Tensor1D<B>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        let queue_item = QueueItem {
-            input: item,
-            sender: tx,
-        };
+        let queue_item = QueueItem::new(
+            item,
+            tx,
+        );
         {
             let mut senders = self.waiting_requests.lock().await;
             senders.push(queue_item);

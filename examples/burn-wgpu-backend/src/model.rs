@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use burn::prelude::{Backend, Tensor};
-use hibachi::Forward;
+use hibachi::Autoregressive;
 use async_trait::async_trait;
 use burn::tensor::Shape;
 use rand::{thread_rng, Rng};
@@ -21,9 +21,12 @@ impl <B> Model<B>
 }
 
 #[async_trait]
-impl <B> Forward<B> for Model<B>
+impl <B> Autoregressive for Model<B>
 where B: Backend {
-    fn forward(&self, tensor: Tensor<B, 2>) -> Tensor<B, 1> {
+    type Sequence = Tensor<B, 2>;
+    type Output = Tensor<B, 1>;
+
+    fn forward(&self, tensor: Self::Sequence) -> Self::Output {
         // Extract the dimensions we need
         let batch_size = tensor.shape().dims[0];
         //let token_size = tensor.shape().dims[2];

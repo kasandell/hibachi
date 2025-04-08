@@ -6,19 +6,22 @@ use std::io::{stdout, Write};
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
 use hibachi::BatchedRegressiveInference;
-use hibachi::CandleForward;
+use hibachi::Autoregressive;
 use futures::stream::StreamExt;
 use hibachi::Batcher;
 use tokenizers::Tokenizer;
 use crate::model::Model;
 use crate::token_output_stream::TokenOutputStream;
 
+type Tensor1D = Tensor;
+type Tensor2D = Tensor;
+
 #[tokio::main]
 async fn main() {
     let model_pre = Model::new(Some(0.2), Some(25), Some(0.7));
     let stop_token = model_pre.stop_token();
     let tokenizer = model_pre.tokenizer();
-    let model: Box<dyn CandleForward + Send + Sync> = Box::new(model_pre);
+    let model = Box::new(model_pre);
 
     let bi = Arc::new(BatchedRegressiveInference::<2>::new(
         model,
