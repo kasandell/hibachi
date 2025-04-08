@@ -12,19 +12,21 @@ use candle_transformers::models::llama as model;
 use model::{Llama, LlamaConfig};
 use tokio::sync::Mutex;
 
-const MODEL_NAME: &str = "SmoLM2-135M-Instruct";
-const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-135M-Instruct";
-const EOS_TOKEN: &str = "</s>";
+//const MODEL_NAME: &str = "SmoLM2-135M";
+//const MODEL_ID: &str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
+//const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-135M";
+const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-1.7B";
+const EOS_TOKEN: &str = "<|endoftext|>";
 
 pub struct Model {
     model: Llama,
-    tokenizer: Arc<Tokenizer>,
+    tokenizer: Tokenizer,
     logits: Mutex<LogitsProcessor>,
     cache: Mutex<model::Cache>
 }
 
 impl Model {
-    pub fn new(top_k: Option<usize>, top_p: Option<f64>) -> Self  {
+    pub fn new(temperature: Option<f64>, top_k: Option<usize>, top_p: Option<f64>) -> Self  {
         let dtype = DType::F16;
         let device = Device::Cpu;
         let api = Api::new().expect("creates api");
@@ -43,7 +45,7 @@ impl Model {
         // , tokenizer_filename, cache, config)
 
         let mut logits_processor = {
-            let temperature = 1.0;
+            let temperature = temperature.unwrap_or(1.0);
             let sampling = if temperature <= 0. {
                 Sampling::ArgMax
             } else {
@@ -59,32 +61,22 @@ impl Model {
 
         Self {
             model: llama,
-            tokenizer: Arc::new(tokenizer),
+            tokenizer: tokenizer,
             logits: Mutex::new(logits_processor),
             cache: Mutex::new(cache)
         }
     }
 
     pub fn stop_token(&self) -> Tensor {
+        // hardcode since we know the stop token
         let device = Device::Cpu;
         Tensor::from_vec(vec![0u32],
                          &[1],
                          &device,
         ).expect("creates start token")
-            /*
-        let val = self.tokenizer.token_to_id(EOS_TOKEN)
-            .map(model::LlamaEosToks::Single);
-        println!("{:?}", val);
-        if let Some(model::LlamaEosToks::Single(data)) = val {
-
-        } else {
-            panic!("Unable to get eos token");
-        }
-             */
-
     }
 
-    pub fn tokenizer(&self) -> Arc<Tokenizer> {
+    pub fn tokenizer(&self) -> Tokenizer {
         self.tokenizer.clone()
     }
 }
@@ -113,7 +105,9 @@ fn batchwise_logits(
     }
 
     // Create a tensor from the sampled tokens
-    Tensor::from_slice(&sampled_tokens, &[batch_size], logits.device()).unwrap()
+    let out  = Tensor::from_slice(&sampled_tokens, &[batch_size], logits.device()).unwrap();
+    //println!("{:?}", out);
+    out
 }
 
 #[async_trait]
@@ -121,24 +115,9 @@ impl CandleForward for Model {
     async fn forward(&self, tensor: Tensor) -> Tensor {
         let mut cache = self.cache.lock().await;
         let sq_len = tensor.dims()[1];
-        print!(".");
-        /*
-        let (context_size, context_index) = if cache.use_kv_cache {
-            (1, 0)
-        } else {
-            (sq_len, 0)
-        };
-         */
-        //println!("Tensor: {:?}", tensor.dims());
-        //println!("Sq len: {:?}", sq_len);
-
+        //println!("model forward");
         let logits = self.model.forward(&tensor, sq_len, &mut *cache).unwrap();
-        //println!("Did forward");
-        //let logits = logits.squeeze(0).unwrap();
         let mut logits_processor = self.logits.lock().await;
-        let out = batchwise_logits(&mut *logits_processor, logits);
-        //println!("Out: {:?}", out.dims());
-        out
-        //let next_token = logits_processor.sample(&logits).unwrap();
+        batchwise_logits(&mut *logits_processor, logits)
     }
 }
