@@ -1,4 +1,4 @@
-use hibachi::CandleForward;
+use hibachi::{Autoregressive};
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
 use candle_core::{Tensor};
@@ -13,13 +13,15 @@ impl Model {
 }
 
 #[async_trait]
-impl CandleForward for Model {
-    async fn forward(&self, tensor: Tensor) -> Tensor {
+impl Autoregressive for Model {
+    type Sequence = Tensor;
+    type Output = Tensor;
+
+    async fn forward(&self, tensor: Self::Sequence) -> Self::Output {
         // Extract the dimensions we need
         let batch_size = tensor.dims()[0];
-        //let token_size = tensor.shape().dims[2];
         let mut rng = thread_rng();
-        let val = rng.gen_range(0..2);
+        let val = rng.gen_range(0..batch_size/10);
         let mut zeros = Tensor::zeros(&[batch_size], tensor.dtype(), &tensor.device()).unwrap();
         let ones = Tensor::ones(&[1], tensor.dtype(), &tensor.device()).unwrap();
         for _ in 0..val {

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use hibachi::CandleForward;
+use hibachi::Autoregressive;
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
 use candle_core::{DType, Device, Tensor};
@@ -101,8 +101,11 @@ fn batchwise_logits(
 }
 
 #[async_trait]
-impl CandleForward for Model {
-    async fn forward(&self, tensor: Tensor) -> Tensor {
+impl Autoregressive for Model {
+    type Sequence = Tensor;
+    type Output = Tensor;
+
+    async fn forward(&self, tensor: Self::Sequence) -> Self::Output {
         let mut cache = self.cache.lock().await;
         let sq_len = tensor.dims()[1];
         //println!("model forward");
