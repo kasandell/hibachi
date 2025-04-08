@@ -10,7 +10,9 @@ all-features = true
 
 [features]
 burn = ["dep:hibachi-burn"]
+candle = ["dep:hibachi-candle"]
 
 [dependencies]
 hibachi-core = {version = "0.1.0", path = "../hibachi-core"}
 hibachi-burn = {version = "0.1.0", path = "../hibachi-burn", optional = true}
+hibachi-candle = {version = "0.1.0", path = "../hibachi-candle", optional = true}
