@@ -3,6 +3,8 @@ mod item_stream;
 mod batch_item;
 mod queue_item;
 mod autoregressive;
+mod backend;
+mod autoregressive_batcher;
 mod tensor;
 
 pub use batcher::AutoregressiveBatcher;
