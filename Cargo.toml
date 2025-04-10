@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "crates/*",
-    "examples/*"
+    "examples/test-candle-backend",
+    "examples/candle-transformer"
 ]
 resolver = "2"
 

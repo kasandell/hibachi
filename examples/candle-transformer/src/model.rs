@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use hibachi::Autoregressive;
+use hibachi_core::Autoregressive;
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
 use candle_core::{DType, Device, Tensor};
@@ -66,6 +66,15 @@ impl Model {
         // hardcode since we know the stop token
         let device = Device::Cpu;
         Tensor::from_vec(vec![0u32],
+                         &[1],
+                         &device,
+        ).expect("creates start token")
+    }
+
+    pub fn padding_token(&self) -> Tensor {
+        // hardcode since we know the stop token
+        let device = Device::Cpu;
+        Tensor::from_vec(vec![1u32],
                          &[1],
                          &device,
         ).expect("creates start token")
