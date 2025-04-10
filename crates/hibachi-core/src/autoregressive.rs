@@ -1,14 +1,8 @@
 use async_trait::async_trait;
 
 /// The forward trait that all models wanting to use the batched interface must implement.
-/// Requires input of a rank 3 tensor, and guarantees output of a rank 2 tensor
-/// for autoregressive generation. Expected dimensions are (batch, seq, tok) -> (batch, tok)
-/// Internally, the batching engine will append the output tensor to the input for autoregressive
-/// behavior
-/// TODO: this actually likely needs to be Tensor<B, 2> -> Tensor<B, 3>
-/// this should take in [batch_size, seq_len] token ids, tokenize them, and return out
-/// [batch_size] token_ids or even potentially we force the selection of the token, so it is really
-/// [batch_size, seq_len] -> [batch_size] -> [seq_len]
+/// for autoregressive generation. Expected input dimensions are (batch, seq, **tok_dimensions) -> (batch, **tok_dimensions)
+/// Internally, the batching engine will append the output tensor to the input for autoregressive models
 #[async_trait]
 pub trait Autoregressive {
     type Sequence;
