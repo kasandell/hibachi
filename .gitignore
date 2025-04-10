@@ -2,3 +2,4 @@
 scratch/
 target/
 Cargo.lock
+*.DS_Store
