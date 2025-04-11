@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
-use crate::{AsyncItemStream, Autoregressive, AutoregressiveBatcher, BatchItem, QueueItem};
+use crate::{ItemStream, Autoregressive, AutoregressiveBatcher, BatchItem, QueueItem};
 use crate::backend::Backend;
 use crate::pill::Pill;
 use crate::tensor::*;
@@ -28,6 +28,8 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
 {
     /// Instantiate a new batched regressive inference engine on top of `model`,
     /// stopping when we hit stop_token.
+    /// stop token & padding token must be of one dimension higher than they are intended.
+    /// this is bc there's no support for 0 size tensor
     pub fn new(
         model: M,
         stop_token: &B,
@@ -39,10 +41,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         let active_count = Arc::new(Mutex::new(0));
         let work_notifier = Arc::new(Notify::new());
 
-        let stop_token_dims = stop_token.shape();
-        //assert_eq!(token_size, 1, "token size must be of length 1");
         let padding_shape = padding_token.shape();
-        // this yields us a shape of
         assert!(padding_shape.len() > 0, "padding shape must be of rank 1 or higher");
         assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
         let mut broadcast_shape = vec![S];
@@ -103,8 +102,6 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         while running.load(Ordering::SeqCst) {
             // Check if there's work to do (either active items or waiting requests)
             let should_process = Self::should_process(active_count.clone(), waiting_requests.clone()).await;
-
-
 
             if !should_process {
                 // No work to do, wait for notification or check periodically
@@ -326,7 +323,7 @@ where B: Backend,
 impl <B, M, const S: usize> AutoregressiveBatcher<B, B> for BatchedRegressiveInference<B, M, S>
 where B: Backend,
       M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static {
-    async fn run(&self, item: B) -> AsyncItemStream<B> {
+    async fn run(&self, item: B) -> ItemStream<B> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(
             item,
@@ -338,6 +335,6 @@ where B: Backend,
         }
         // Notify the worker that new work is available
         self.work_notifier.notify_one();
-        AsyncItemStream::new(rx)
+        ItemStream::new(rx)
     }
 }

@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use hibachi_core::{AutoregressiveBatcher, AsyncItemStream, Autoregressive};
+use hibachi_core::{AutoregressiveBatcher, ItemStream, Autoregressive};
 use hibachi_core::{BatchItem, QueueItem};
 use crate::tensor::*;
 use candle_core::Tensor;
@@ -317,7 +317,7 @@ impl <const S: usize> Drop for BatchedRegressiveInference<S> {
 
 #[async_trait]
 impl <const S: usize> AutoregressiveBatcher<Tensor, Tensor> for BatchedRegressiveInference<S> {
-    async fn run(&self, item: Tensor) -> AsyncItemStream<Tensor> {
+    async fn run(&self, item: Tensor) -> ItemStream<Tensor> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(
             item,
@@ -331,6 +331,6 @@ impl <const S: usize> AutoregressiveBatcher<Tensor, Tensor> for BatchedRegressiv
         self.work_notifier.notify_one();
 
 
-        AsyncItemStream::new(rx)
+        ItemStream::new(rx)
     }
 }

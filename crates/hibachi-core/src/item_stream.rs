@@ -5,11 +5,11 @@ use tokio::sync::mpsc;
 
 
 /// Asynchronous stream of items to be returned by the batcher
-pub struct AsyncItemStream<T> {
+pub struct ItemStream<T> {
     receiver: mpsc::UnboundedReceiver<T>
 }
 
-impl <T> AsyncItemStream<T> {
+impl <T> ItemStream<T> {
     /// Instantiate a new item stream from a receiver
     pub fn new(receiver: mpsc::UnboundedReceiver<T>) -> Self {
         Self {
@@ -18,7 +18,7 @@ impl <T> AsyncItemStream<T> {
     }
 }
 
-impl <T> Stream for AsyncItemStream<T> {
+impl <T> Stream for ItemStream<T> {
     type Item = T;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

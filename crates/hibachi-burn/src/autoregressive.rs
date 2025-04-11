@@ -7,7 +7,7 @@ use burn::prelude::{Backend, Tensor};
 use burn::tensor::Shape;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use hibachi_core::{AutoregressiveBatcher, AsyncItemStream, BatchItem, QueueItem, Autoregressive};
+use hibachi_core::{AutoregressiveBatcher, ItemStream, BatchItem, QueueItem, Autoregressive};
 use crate::tensor::*;
 
 type Tensor1D<B> = Tensor<B, 1>;
@@ -307,7 +307,7 @@ where B: Backend {
 #[async_trait]
 impl <B, const S: usize> AutoregressiveBatcher<Tensor1D<B>, Tensor1D<B>> for BatchedRegressiveInference<B, S>
 where B: Backend {
-    async fn run(&self, item: Tensor1D<B>) -> AsyncItemStream<Tensor1D<B>> {
+    async fn run(&self, item: Tensor1D<B>) -> ItemStream<Tensor1D<B>> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(
             item,
@@ -321,6 +321,6 @@ where B: Backend {
         self.work_notifier.notify_one();
 
 
-        AsyncItemStream::new(rx)
+        ItemStream::new(rx)
     }
 }

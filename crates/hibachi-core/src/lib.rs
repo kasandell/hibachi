@@ -10,7 +10,7 @@ mod pill;
 mod constant;
 
 pub use batcher::AutoregressiveBatcher;
-pub use item_stream::AsyncItemStream;
+pub use item_stream::ItemStream;
 pub use queue_item::QueueItem;
 pub use batch_item::BatchItem;
 pub use autoregressive::Autoregressive;

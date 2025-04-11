@@ -18,13 +18,13 @@ async fn main() {
     let device = Device::Cpu;
     // will be of rank + 1
     let stop_token = Tensor::ones(
-        &[1],
+        &[1, 2, 4, 6],
         DType::U8,
         &device
     ).unwrap();
 
     let padding_token = Tensor::zeros(
-        &[1],
+        &[1, 2, 4, 6],
         DType::U8,
         &device
     ).unwrap();
@@ -41,7 +41,7 @@ async fn main() {
         tokio::spawn(async move {
             async {
                 let device = Device::Cpu;
-                let toks = Tensor::zeros(&[3],
+                let toks = Tensor::zeros(&[3, 2, 4, 6],
                                          DType::U8,
                                          &device,
                 ).expect("creates start token");
