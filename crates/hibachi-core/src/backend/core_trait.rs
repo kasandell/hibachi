@@ -1,4 +1,6 @@
-pub trait Backend: Clone + Send + Sync + 'static {
+use std::fmt::{Debug, Display};
+
+pub trait Backend: Debug + Display + Clone + Send + Sync + 'static {
     type DType;
     type Device;
     // Create a tensor of given shape, filled with zeros
@@ -27,7 +29,7 @@ pub trait Backend: Clone + Send + Sync + 'static {
     // assign the dimension and range with a new tensor
     fn slice_assign(&self, batch_index: usize, seq_start_idx: usize, seq_end_idx: usize, other: &Self) -> Self;
     // provide the sliced tensor along dimension, from start to end
-    fn slice(&self, dimension: usize, seq_start_idx: usize, seq_end_idx: usize) -> Self;
+    fn slice(&self, dimension: usize, seq_start_idx: usize, len: usize) -> Self;
     fn broadcast_as(&self, dims: &[usize]) -> Self;
     fn transpose_dims(&self, first: usize, second: usize) -> Self;
     fn all_dim(&self, dim: usize) -> Self;

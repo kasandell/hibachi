@@ -35,6 +35,10 @@ impl <T> BatchItem<T> {
             .max()
             .unwrap_or(0)
     }
+
+    pub fn len(&self) -> usize {
+        self.sequence_length
+    }
 }
 
 

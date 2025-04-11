@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::panic;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -8,6 +9,7 @@ use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
 use crate::{AsyncItemStream, Autoregressive, AutoregressiveBatcher, BatchItem, QueueItem};
 use crate::backend::Backend;
+use crate::pill::Pill;
 use crate::tensor::*;
 
 pub struct BatchedRegressiveInference<B, M, const S: usize>
@@ -29,6 +31,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
     pub fn new(
         model: M,
         stop_token: &B,
+        padding_token: &B,
     ) -> Self {
 
         let waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>> = Default::default();
@@ -36,34 +39,45 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         let active_count = Arc::new(Mutex::new(0));
         let work_notifier = Arc::new(Notify::new());
 
-        let device = stop_token.device();
-        let dtype = stop_token.dtype();
         let stop_token_dims = stop_token.shape();
-        let token_size = stop_token_dims[0];
-        assert_eq!(token_size, 1, "token size must be of length 1");
+        //assert_eq!(token_size, 1, "token size must be of length 1");
+        let padding_shape = padding_token.shape();
+        // this yields us a shape of
+        assert!(padding_shape.len() > 0, "padding shape must be of rank 1 or higher");
+        assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
+        let mut broadcast_shape = vec![S];
+        for &shape in padding_shape {
+            broadcast_shape.push(shape);
+        }
+        let start = padding_token.broadcast_as(&broadcast_shape);
         let active_tensor = Arc::new(Mutex::new(
-            B::zeros(
-                &[S, 1],
-                dtype,
-                &device
-            )
+            start
         ));
+
 
         let running_clone = running.clone();
         let active_count_clone = active_count.clone();
         let waiting_clone = waiting_requests.clone();
         let work_notifier_clone = work_notifier.clone();
         let stop_clone = stop_token.clone();
+        let padding_clone = padding_token.clone();
+        let pill = Pill {};
         let background_task = Some(tokio::spawn(async move {
+            // by moving this in here, when inference loop panics and this thread dies
+            // drop will be called, causing a panic escalation
+            let panic_escalator = pill;
             Self::run_inference_loop_batch_item(
                 model,
                 active_tensor,
                 running_clone,
                 stop_clone,
-                active_count_clone,
-                waiting_clone,
+                padding_clone,
+                active_count_clone.clone(),
+                waiting_clone.clone(),
                 work_notifier_clone
             ).await;
+            // *active_count_clone.lock().await = 0;
+            // *waiting_clone.lock().await = vec![];
         }));
         Self {
             _marker: PhantomData,
@@ -79,6 +93,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         active_tensor: Arc<Mutex<B>>,
         running: Arc<AtomicBool>,
         stop_token: B,
+        padding_token: B,
         active_count: Arc<Mutex<usize>>,
         waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
         work_notifier: Arc<Notify>,
@@ -88,6 +103,8 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         while running.load(Ordering::SeqCst) {
             // Check if there's work to do (either active items or waiting requests)
             let should_process = Self::should_process(active_count.clone(), waiting_requests.clone()).await;
+
+
 
             if !should_process {
                 // No work to do, wait for notification or check periodically
@@ -108,15 +125,13 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
                 *active > 0
             } {
                 let mut lock = active_tensor.lock().await;
-                Self::push_new_requests(&mut lock, items, &mut batch_items).await;
+                Self::push_new_requests(&mut lock, items, &mut batch_items, &padding_token).await;
                 let input = (*lock).clone();
-                //println!("Input shape: {:?}", input.dims());
                 let output = model.forward(input.clone()).await;
-                //println!("Output shape: {:?}", output.dims());
-                Self::update_sequence_lengths(&mut batch_items).await;
                 Self::send_outputs_to_stream(output.clone(), &batch_items).await;
                 let mut concatenated = concat_output(&input, &output);
-                Self::update_state_for_output(&mut concatenated, &output, &stop_token, &mut batch_items, active_count.clone()).await;
+                Self::update_sequence_lengths(&mut batch_items).await;
+                Self::update_state_for_output(&mut concatenated, &output, &stop_token, &padding_token, &mut batch_items, active_count.clone()).await;
                 *lock = concatenated;
             }
         }
@@ -150,6 +165,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         active_tensor: &mut B,
         mut new_queue_items: Vec<QueueItem<B, B>>,
         batch_items: &mut [Option<BatchItem<B>>; S],
+        padding_token: &B
     ) {
         for (idx, item) in batch_items.iter_mut().enumerate() {
             if new_queue_items.is_empty() {return};
@@ -161,7 +177,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
                 pop.sender().clone(),
             );
             *item = Some(batch_item);
-            Self::set_slot_in_active_tensor(active_tensor, pop.input(), idx).await;}
+            Self::set_slot_in_active_tensor(active_tensor, pop.input(), padding_token, idx).await;}
         }
 
         assert_eq!(new_queue_items.len(), 0, "Should be no outstanding queue items!!!");
@@ -170,29 +186,23 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
     async fn set_slot_in_active_tensor(
         active_tensor: &mut B,
         request_tensor: &B,
+        padding_token: &B,
         index: usize
     ) {
         let sequence_dims = request_tensor.shape();
         let seq_len = sequence_dims[0];
         let active_dims = active_tensor.shape();
         let mut batch_len = active_dims[1];
-        //assert_eq!(seq_tok_width, batch_tok_width, "tokens must be same size");
 
-        //println!("Seq len: {} batch len: {}", seq_len, batch_len);
         if seq_len > batch_len {
             // need to expand active tensor length at the front with padding
-            //println!("updating seq len");
             let diff = seq_len - batch_len;
             let mut new_dims = active_dims.to_vec();
             new_dims[1] = seq_len - batch_len;
             // zero padding
-            *active_tensor = zero_pad_sequence(active_tensor, seq_len - batch_len);
-            //let new = B::zeros(&new_dims, active_tensor.dtype(), active_tensor.device());
-            //*active_tensor = B::cat(&[new, active_tensor], 1);
+            *active_tensor = pad_all_sequences(active_tensor, seq_len - batch_len, padding_token);
             batch_len += diff;
         }
-        // active tensor now big enough to fit. good
-        //println!("{:?} {:?}", request_tensor.dims(), active_tensor.dims());
         *active_tensor = assign_sequence_to_slot(active_tensor, request_tensor, index, batch_len - seq_len, batch_len);
     }
 
@@ -229,6 +239,7 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         inputs: &mut B,
         output: &B,
         stop_token: &B,
+        padding_token: &B,
         batch_items: &mut [Option<BatchItem<B>>; S],
         active_sequence_count: Arc<Mutex<usize>>
     ) {
@@ -243,12 +254,10 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
                 ended += 1;
             }
             batch_items[i] = None;
-            zero_sequence(inputs, i);
+            zero_sequence(inputs, i, padding_token);
         });
-
         let max_sequence_length = BatchItem::max_seq_len_for_batch_items(batch_items);
         *inputs = trim_sequence(inputs, max_sequence_length);
-
         {
             let mut sequence_count = active_sequence_count.lock().await;
             *sequence_count -= ended;
@@ -275,7 +284,6 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
         let mut active = active_count.lock().await;
         // Calculate how many items we can process
         let available_slots = batch_size.saturating_sub(*active);
-        //println!("Available: {}, reqlen: {}", available_slots, requests.len());
 
         if available_slots > 0 && !requests.is_empty() {
             let items_to_take = std::cmp::min(available_slots, requests.len());
