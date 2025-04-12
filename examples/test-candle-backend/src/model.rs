@@ -13,11 +13,9 @@ impl Model {
 }
 
 #[async_trait]
-impl Autoregressive for Model {
-    type Sequence = Tensor;
-    type Output = Tensor;
+impl Autoregressive<Tensor> for Model {
 
-    async fn forward(&self, tensor: Self::Sequence) -> Self::Output {
+    async fn forward(&self, tensor: Tensor) -> Tensor {
         // Extract the dimensions we need
         let batch_size = tensor.dims()[0];
         let mut rng = thread_rng();

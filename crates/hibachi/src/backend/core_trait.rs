@@ -24,12 +24,9 @@ pub trait Backend: Debug + Display + Clone + Send + Sync + 'static {
     // slice a dimension returning a vectorized view over the data along that dimension
     // TODO: combine with above?
     fn vectorize_dim(&self, dim: usize) -> Vec<Self>;
-    // assign the dimension and range with a new tensor
-    fn slice_assign(&self, batch_index: usize, seq_start_idx: usize, seq_end_idx: usize, other: &Self) -> Self;
     // provide the sliced tensor along dimension, from start to end
     fn slice(&self, dimension: usize, seq_start_idx: usize, len: usize) -> Self;
     fn broadcast_as(&self, dims: &[usize]) -> Self;
-    fn transpose_dims(&self, first: usize, second: usize) -> Self;
     fn all_dim(&self, dim: usize) -> Self;
     fn pop(&self, dim: usize, index: usize) -> Self;
 }
