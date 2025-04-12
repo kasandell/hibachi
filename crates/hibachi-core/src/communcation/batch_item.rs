@@ -34,6 +34,7 @@ impl <T> BatchItem<T> {
             .unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.sequence_length
     }

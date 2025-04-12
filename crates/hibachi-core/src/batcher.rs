@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::item_stream::ItemStream;
+use crate::communcation::ItemStream;
 
 #[async_trait]
 pub trait AutoregressiveBatcher<T, Q> {

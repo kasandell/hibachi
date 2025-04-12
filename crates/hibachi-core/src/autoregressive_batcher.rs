@@ -8,9 +8,9 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
-use crate::{ItemStream, Autoregressive, AutoregressiveBatcher, BatchItem, QueueItem};
+use crate::communcation::{ItemStream, BatchItem, QueueItem, Pill};
+use crate::{Autoregressive, AutoregressiveBatcher};
 use crate::backend::Backend;
-use crate::pill::Pill;
 use crate::tensor::*;
 
 pub struct BatchedRegressiveInference<B, M, const S: usize>
