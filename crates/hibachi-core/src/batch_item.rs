@@ -3,16 +3,14 @@ use uuid::{Uuid};
 
 /// Batch item struct to store the sender info, and the sequence tracking info per batch slot
 pub struct BatchItem<T> {
-    slot: usize,
     id: Uuid,
     sequence_length: usize,
     sender: mpsc::UnboundedSender<T>
 }
 
 impl <T> BatchItem<T> {
-    pub fn new(slot: usize, sequence_length: usize, sender: mpsc::UnboundedSender<T>) -> Self {
+    pub fn new(sequence_length: usize, sender: mpsc::UnboundedSender<T>) -> Self {
         Self {
-            slot,
             id: Uuid::new_v4(),
             sequence_length,
             sender,
@@ -27,11 +25,11 @@ impl <T> BatchItem<T> {
         self.sequence_length += amount
     }
 
-    pub fn max_seq_len_for_batch_items<const S: usize>(
-        batch_items: &mut [Option<BatchItem<T>>; S]
+    pub fn max_seq_len_for_batch_items(
+        batch_items: &[BatchItem<T>]
     ) -> usize {
         batch_items.iter()
-            .filter_map(|item| item.as_ref().map(|bi| bi.sequence_length))
+            .map(|item| item.sequence_length)
             .max()
             .unwrap_or(0)
     }

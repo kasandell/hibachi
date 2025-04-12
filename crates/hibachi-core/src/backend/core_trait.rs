@@ -3,8 +3,6 @@ use std::fmt::{Debug, Display};
 pub trait Backend: Debug + Display + Clone + Send + Sync + 'static {
     type DType;
     type Device;
-    // Create a tensor of given shape, filled with zeros
-    fn zeros(shape: &[usize], dtype: Self::DType, device: &Self::Device) -> Self;
     // Return the shape of the tensor
     fn shape(&self) -> &[usize];
     // Return the device (useful if we need to create new tensors on the same device)
@@ -33,4 +31,5 @@ pub trait Backend: Debug + Display + Clone + Send + Sync + 'static {
     fn broadcast_as(&self, dims: &[usize]) -> Self;
     fn transpose_dims(&self, first: usize, second: usize) -> Self;
     fn all_dim(&self, dim: usize) -> Self;
+    fn pop(&self, dim: usize, index: usize) -> Self;
 }

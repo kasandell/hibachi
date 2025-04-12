@@ -19,17 +19,17 @@ impl Autoregressive for Model {
 
     async fn forward(&self, tensor: Self::Sequence) -> Self::Output {
         // Extract the dimensions we need
-        /*
         let batch_size = tensor.dims()[0];
         let mut rng = thread_rng();
-        let val = rng.gen_range(0..batch_size/ 20);
+        let val = rng.gen_range(0..=batch_size);
         let mut zeros = Tensor::zeros(&[batch_size], tensor.dtype(), &tensor.device()).unwrap();
         let ones = Tensor::ones(&[1], tensor.dtype(), &tensor.device()).unwrap();
         for _ in 0..val {
             let idx = rng.gen_range(0..batch_size);
             zeros = zeros.slice_assign(&[idx..idx+1], &ones).unwrap();
         }
-         */
+        zeros
+        /*
         let mut rng = thread_rng();
         let mut shape = tensor.dims().to_vec();
         shape.remove(1);
@@ -39,5 +39,7 @@ impl Autoregressive for Model {
         }
         let zeros = Tensor::zeros(shape, tensor.dtype(), &tensor.device()).unwrap();
         zeros
+
+         */
     }
 }

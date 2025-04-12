@@ -2,13 +2,10 @@ mod model;
 
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
-use hibachi_core::{Autoregressive, BatchedRegressiveInference};
+use hibachi_core::{BatchedRegressiveInference};
 use futures::stream::StreamExt;
 use hibachi_core::AutoregressiveBatcher;
 use crate::model::Model;
-
-type Tensor1D = Tensor;
-type Tensor2D = Tensor;
 
 #[tokio::main]
 async fn main() {
@@ -18,30 +15,30 @@ async fn main() {
     let device = Device::Cpu;
     // will be of rank + 1
     let stop_token = Tensor::ones(
-        &[1, 2, 4, 6],
+        &[1],
         DType::U8,
         &device
     ).unwrap();
 
     let padding_token = Tensor::zeros(
-        &[1, 2, 4, 6],
+        &[1],
         DType::U8,
         &device
     ).unwrap();
 
-    let bi = Arc::new(BatchedRegressiveInference::<Tensor, Model, 100>::new(
+    let bi = Arc::new(BatchedRegressiveInference::<Tensor, Model, 10>::new(
         model,
         &stop_token,
         &padding_token
     ));
 
-    let handles = (0..1000).map(|e| {
+    let handles = (0..50).map(|e| {
         let bic = bi.clone();
 
         tokio::spawn(async move {
             async {
                 let device = Device::Cpu;
-                let toks = Tensor::zeros(&[3, 2, 4, 6],
+                let toks = Tensor::zeros(&[3],
                                          DType::U8,
                                          &device,
                 ).expect("creates start token");

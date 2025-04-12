@@ -1,18 +1,9 @@
 use super::Backend;
-use candle_core::{Tensor, WithDType};
+use candle_core::Tensor;
 
 impl Backend for Tensor {
     type DType = candle_core::DType;
     type Device = candle_core::Device;
-
-    fn zeros(shape: &[usize], dtype: Self::DType, device: &Self::Device) -> Self {
-        let t = Tensor::zeros(
-            shape,
-            dtype,
-            device
-        ).expect("Creates active tensor");
-        t
-    }
 
     fn shape(&self) -> &[usize] {
         self.shape().dims()
@@ -27,7 +18,6 @@ impl Backend for Tensor {
     }
 
     fn cat(tensors: &[Self], dim: usize) -> Self {
-        //panic!("test");
         Tensor::cat(
             tensors, dim
         ).unwrap()
@@ -95,5 +85,29 @@ impl Backend for Tensor {
 
     fn all_dim(&self, dim: usize) -> Self {
         self.min(dim).unwrap()
+    }
+
+    fn pop(&self, dim: usize, index: usize) -> Self {
+        let dim_size = self.dim(dim).unwrap();
+
+        if index >= dim_size {
+            panic!("Index {} is out of bounds for dimension {} with size {}", index, dim, dim_size);
+        }
+
+        // If idx is 0, we just take everything after idx
+        if index == 0 {
+            return self.narrow(dim, 1, dim_size - 1).unwrap();
+        }
+
+        // If idx is the last element, we take everything before idx
+        if index == dim_size - 1 {
+            return self.narrow(dim, 0, dim_size - 1).unwrap();
+        }
+
+        // Otherwise, we need to concatenate the parts before and after idx
+        let first_part = self.narrow(dim, 0, index).unwrap();
+        let second_part = self.narrow(dim, index + 1, dim_size - index - 1).unwrap();
+
+        Tensor::cat(&[&first_part, &second_part], dim).unwrap()
     }
 }
