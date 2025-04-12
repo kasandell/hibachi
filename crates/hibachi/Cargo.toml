@@ -1,16 +1,16 @@
 [package]
 name = "hibachi"
-edition.workspace = true
-license.workspace = true
-readme.workspace = true
-version.workspace = true
-
-[package.metadata.docs.rs]
-all-features = true
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
 
 [features]
-# burn = ["dep:hibachi-core"]
-# candle = ["dep:hibachi-ca"]
+candle = ["dep:candle-core"]
+autoregressive = []
 
 [dependencies]
-hibachi-core = {version = "0.1.0", path = "../hibachi-core"}
+candle-core = { version = "0.8.4" , optional = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+uuid = { version = "1.16.0", features = ["v4"] }
