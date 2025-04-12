@@ -10,7 +10,7 @@ hf-hub = { version = "0.4.2", features = ["tokio"] }
 candle-nn = "0.8.4"
 candle-transformers = "0.8.4"
 candle-core = "0.8.4"
-hibachi-core = {version = "0.1.0", path = "../../crates/hibachi-core", features = ["candle"]}
+hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle", "autoregressive"]}
 tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
 futures = { version = "0.3.31" }
 async-trait = "0.1.88"

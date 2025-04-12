@@ -5,10 +5,12 @@ use std::io;
 use std::io::{stdout, Write};
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
-use hibachi_core::BatchedRegressiveInference;
-use hibachi_core::Autoregressive;
+use hibachi::autoregressive::{
+    AutoregressiveBatchInference,
+    Autoregressive,
+    AutoregressiveBatcher
+};
 use futures::stream::StreamExt;
-use hibachi_core::AutoregressiveBatcher;
 use tokenizers::Tokenizer;
 use crate::model::Model;
 use crate::token_output_stream::TokenOutputStream;
@@ -23,7 +25,7 @@ async fn main() {
     let padding_token = model.padding_token();
     let tokenizer = model.tokenizer();
 
-    let bi = Arc::new(BatchedRegressiveInference::<Tensor, Model, 2>::new(
+    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, Model, 2>::new(
         model,
         &stop_token,
         &padding_token,

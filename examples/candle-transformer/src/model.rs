@@ -110,14 +110,11 @@ fn batchwise_logits(
 }
 
 #[async_trait]
-impl Autoregressive for Model {
-    type Sequence = Tensor;
-    type Output = Tensor;
+impl Autoregressive<Tensor> for Model {
 
-    async fn forward(&self, tensor: Self::Sequence) -> Self::Output {
+    async fn forward(&self, tensor: Tensor) -> Tensor {
         let mut cache = self.cache.lock().await;
         let sq_len = tensor.dims()[1];
-        //println!("model forward");
         let logits = self.model.forward(&tensor, sq_len, &mut *cache).unwrap();
         let mut logits_processor = self.logits.lock().await;
         batchwise_logits(&mut *logits_processor, logits)
