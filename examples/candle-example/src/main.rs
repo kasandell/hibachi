@@ -2,40 +2,44 @@ mod model;
 
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
-use hibachi::{Autoregressive, BatchedRegressiveInference};
+use hibachi::autoregressive::{AutoregressiveBatchInference, AutoregressiveBatcher};
 use futures::stream::StreamExt;
-use hibachi::AutoregressiveBatcher;
 use crate::model::Model;
-
-type Tensor1D = Tensor;
-type Tensor2D = Tensor;
 
 #[tokio::main]
 async fn main() {
-    let model = Box::new(Model::new());
+    let model = Model::new();
 
 
     let device = Device::Cpu;
+    // will be of rank + 1
     let stop_token = Tensor::ones(
-        &[1, ],
+        &[1],
         DType::U8,
         &device
     ).unwrap();
 
-    let bi = Arc::new(BatchedRegressiveInference::<100>::new(
+    let padding_token = Tensor::zeros(
+        &[1],
+        DType::U8,
+        &device
+    ).unwrap();
+
+    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, Model, 10>::new(
         model,
-        stop_token,
+        &stop_token,
+        &padding_token
     ));
 
-    let handles = (0..1000).map(|e| {
+    let handles = (0..50).map(|e| {
         let bic = bi.clone();
 
         tokio::spawn(async move {
             async {
                 let device = Device::Cpu;
                 let toks = Tensor::zeros(&[3],
-                    DType::U8,
-                    &device,
+                                         DType::U8,
+                                         &device,
                 ).expect("creates start token");
                 let mut it = bic.clone().run(toks).await;
                 let mut count = 0;

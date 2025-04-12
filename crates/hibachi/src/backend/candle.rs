@@ -61,26 +61,12 @@ impl Backend for Tensor {
         result
     }
 
-    fn slice_assign(&self, batch_index: usize, seq_start_idx: usize, seq_end_idx: usize, other: &Self) -> Self {
-        let shape = other.shape().dims()[2..].to_vec();
-        let mut ranges = vec![batch_index..batch_index+1, seq_start_idx..seq_end_idx];
-        for dim in shape {
-            ranges.push(0..dim);
-        }
-
-        self.slice_assign(&ranges, &other).unwrap()
-    }
-
     fn slice(&self, dimension: usize, seq_start_idx: usize, len: usize) -> Self {
         self.narrow(dimension, seq_start_idx, len).expect(&format!("Unwraps: {}, {}, {:?}", seq_start_idx, len, self.dims()))
     }
 
     fn broadcast_as(&self, dims: &[usize]) -> Self {
         self.broadcast_as(dims).unwrap()
-    }
-
-    fn transpose_dims(&self, first: usize, second: usize) -> Self {
-        self.transpose(first, second).unwrap()
     }
 
     fn all_dim(&self, dim: usize) -> Self {

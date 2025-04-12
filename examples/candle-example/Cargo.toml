@@ -7,7 +7,7 @@ version.workspace = true
 
 [dependencies]
 candle-core = "0.8.4"
-hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle"]}
+hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle", "autoregressive"]}
 tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
 futures = { version = "0.3.31" }
 async-trait = "0.1.88"
