@@ -9,12 +9,12 @@ use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
 use crate::communcation::{ItemStream, BatchItem, QueueItem, Pill};
-use crate::{Autoregressive, AutoregressiveBatcher};
 use crate::backend::Backend;
+use super::{Autoregressive, AutoregressiveBatcher};
 use crate::tensor::*;
 
-pub struct BatchedRegressiveInference<B, M, const S: usize>
-where B: Backend, M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
+pub struct AutoregressiveBatchInference<B, M, const S: usize>
+where B: Backend, M: Autoregressive<B> + Send + Sync + 'static
 {
     _marker: PhantomData<M>,
     running: Arc<AtomicBool>,
@@ -24,9 +24,9 @@ where B: Backend, M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'stati
     active_count: Arc<Mutex<usize>>
 }
 
-impl <B, M, const S: usize> BatchedRegressiveInference<B, M, S>
+impl <B, M, const S: usize> AutoregressiveBatchInference<B, M, S>
 where B: Backend,
-M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
+M: Autoregressive<B> + Send + Sync + 'static
 {
     /// Instantiate a new batched regressive inference engine on top of `model`,
     /// stopping when we hit stop_token.
@@ -321,9 +321,9 @@ M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
 }
 
 
-impl <B, M, const S: usize> Drop for BatchedRegressiveInference<B, M, S>
+impl <B, M, const S: usize> Drop for AutoregressiveBatchInference<B, M, S>
 where B: Backend,
-      M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static
+      M: Autoregressive<B> + Send + Sync + 'static
 {
     fn drop(&mut self) {
         self.shutdown();
@@ -332,9 +332,9 @@ where B: Backend,
 
 
 #[async_trait]
-impl <B, M, const S: usize> AutoregressiveBatcher<B, B> for BatchedRegressiveInference<B, M, S>
+impl <B, M, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, M, S>
 where B: Backend,
-      M: Autoregressive<Sequence=B, Output=B> + Send + Sync + 'static {
+      M: Autoregressive<B> + Send + Sync + 'static {
     async fn run(&self, item: B) -> ItemStream<B> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(

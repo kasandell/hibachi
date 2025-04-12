@@ -2,9 +2,8 @@ mod model;
 
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
-use hibachi_core::{BatchedRegressiveInference};
+use hibachi::autoregressive::{AutoregressiveBatchInference, AutoregressiveBatcher};
 use futures::stream::StreamExt;
-use hibachi_core::AutoregressiveBatcher;
 use crate::model::Model;
 
 #[tokio::main]
@@ -26,7 +25,7 @@ async fn main() {
         &device
     ).unwrap();
 
-    let bi = Arc::new(BatchedRegressiveInference::<Tensor, Model, 10>::new(
+    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, Model, 10>::new(
         model,
         &stop_token,
         &padding_token
