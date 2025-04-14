@@ -19,3 +19,4 @@ uuid = { version = "1.16.0", features = ["v4"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["sync", "time", "rt", "test-util", "macros"] }
+burn = { workspace = true, features = ["ndarray"]}

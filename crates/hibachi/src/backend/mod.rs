@@ -19,23 +19,6 @@
 //! 3. Enabling the appropriate feature flag for their desired backend
 //!
 //! This allows for easy switching between tensor backends without changing application code.
-//!
-//! ## Example
-//!
-//! ```no_run
-//! use hibachi::backend::{Backend, Unsqueezable};
-//!
-//! // Function that works with any tensor backend implementing our traits
-//! fn process_tensor<T: Backend + Unsqueezable>(tensor: &T) -> T {
-//!     let shape = tensor.shape();
-//!     if shape.len() >= 2 {
-//!         // Perform operations using the backend-agnostic API
-//!         tensor.slice(0, 0, 1).unsqueeze(0)
-//!     } else {
-//!         tensor.clone()
-//!     }
-//! }
-//! ```
 
 mod core_trait;
 
