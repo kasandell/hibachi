@@ -6,9 +6,9 @@ readme.workspace = true
 version.workspace = true
 
 [dependencies]
-candle-core = "0.8.4"
+candle-core = {workspace = true}
 hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle", "autoregressive"]}
-tokio = { version = "1.44.1", features = ["sync", "rt", "rt-multi-thread", "macros"] }
-futures = { version = "0.3.31" }
-async-trait = "0.1.88"
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
 rand = "0.8.5"

@@ -2,16 +2,15 @@ mod model;
 mod token_output_stream;
 
 use std::io;
-use std::io::{stdout, Write};
+use std::io::Write;
 use std::sync::Arc;
-use candle_core::{Tensor, Device, DType};
+use candle_core::{Tensor, Device};
 use hibachi::autoregressive::{
     AutoregressiveBatchInference,
     Autoregressive,
     AutoregressiveBatcher
 };
 use futures::stream::StreamExt;
-use tokenizers::Tokenizer;
 use crate::model::Model;
 use crate::token_output_stream::TokenOutputStream;
 
@@ -25,7 +24,7 @@ async fn main() {
     let padding_token = model.padding_token();
     let tokenizer = model.tokenizer();
 
-    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, Model, 2>::new(
+    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, 2>::new(
         model,
         &stop_token,
         &padding_token,

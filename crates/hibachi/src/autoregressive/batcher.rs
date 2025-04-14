@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::panic;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,14 +8,13 @@ use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
 use crate::communcation::{ItemStream, BatchItem, QueueItem, Pill};
-use crate::backend::Backend;
+use crate::backend::{Backend, LowerRankedTensorOps};
 use super::{Autoregressive, AutoregressiveBatcher};
 use crate::tensor::*;
 
-pub struct AutoregressiveBatchInference<B, M, const S: usize>
-where B: Backend, M: Autoregressive<B> + Send + Sync + 'static
+pub struct AutoregressiveBatchInference<B, const S: usize>
+where B: Backend + LowerRankedTensorOps
 {
-    _marker: PhantomData<M>,
     running: Arc<AtomicBool>,
     background_task: Option<JoinHandle<()>>,
     waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
@@ -24,9 +22,9 @@ where B: Backend, M: Autoregressive<B> + Send + Sync + 'static
     active_count: Arc<Mutex<usize>>
 }
 
-impl <B, M, const S: usize> AutoregressiveBatchInference<B, M, S>
-where B: Backend,
-M: Autoregressive<B> + Send + Sync + 'static
+impl <B, const S: usize> AutoregressiveBatchInference<B, S>
+where B: Backend + LowerRankedTensorOps,
+
 {
     /// Instantiate a new batched regressive inference engine on top of `model`,
     /// stopping when we hit stop_token.
@@ -34,11 +32,13 @@ M: Autoregressive<B> + Send + Sync + 'static
     /// this is bc there's no support for 0 size tensor
     /// so, for a typical text based autoregressive model, of (batch_size, seq_len),
     /// we expect stop token and padding token to be of dimension [1], rathar than a 0 rank value
-    pub fn new(
+    pub fn new<M>(
         model: M,
         stop_token: &B,
         padding_token: &B,
-    ) -> Self {
+    ) -> Self
+    where M: Autoregressive<B> + Send + Sync + 'static,
+    {
         let padding_shape = padding_token.shape();
         assert!(padding_shape.len() > 0, "padding shape must be of rank 1 or higher");
         assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
@@ -74,7 +74,7 @@ M: Autoregressive<B> + Send + Sync + 'static
             // *waiting_clone.lock().await = vec![];
         }));
         Self {
-            _marker: PhantomData,
+            //_marker: PhantomData,
             running,
             background_task,
             waiting_requests,
@@ -83,7 +83,7 @@ M: Autoregressive<B> + Send + Sync + 'static
         }
     }
 
-    async fn run_inference_loop_batch_item(
+    async fn run_inference_loop_batch_item<M>(
         model: M,
         running: Arc<AtomicBool>,
         stop_token: B,
@@ -91,8 +91,10 @@ M: Autoregressive<B> + Send + Sync + 'static
         active_count: Arc<Mutex<usize>>,
         waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
         work_notifier: Arc<Notify>,
-    ) {
-        let active_tensor: Mutex<Option<B>> = Mutex::new(None);
+    )
+    where M: Autoregressive<B> + Send + Sync + 'static,
+    {
+        let active_tensor: Mutex<Option<B::Unsqueezed>> = Mutex::new(None);
         let mut batch_items: Vec<BatchItem<B>>= vec![];
 
         while running.load(Ordering::SeqCst) {
@@ -126,7 +128,7 @@ M: Autoregressive<B> + Send + Sync + 'static
                     Some(input) => {
                         let output = model.forward(input.clone()).await;
                         Self::send_outputs_to_stream(output.clone(), &batch_items).await;
-                        let mut concatenated = Some(concat_output(&input, &output));
+                        let mut concatenated: Option<B::Unsqueezed> = Some(concat_output(&input, &output));
                         Self::update_sequence_lengths(&mut batch_items).await;
                         Self::update_state_for_output(&mut concatenated, &output, &stop_token, &mut batch_items, active_count.clone()).await;
                         *lock = concatenated;
@@ -165,7 +167,7 @@ M: Autoregressive<B> + Send + Sync + 'static
     }
 
     async fn push_new_requests(
-        active_tensor: &mut Option<B>,
+        active_tensor: &mut Option<B::Unsqueezed>,
         new_queue_items: Vec<QueueItem<B, B>>,
         batch_items: &mut Vec<BatchItem<B>>,
         padding_token: &B
@@ -183,7 +185,7 @@ M: Autoregressive<B> + Send + Sync + 'static
 
     // request tensor comes in as (seq_len, ...)
     async fn add_to_active_tensor(
-        active_tensor: &mut Option<B>,
+        active_tensor: &mut Option<B::Unsqueezed>,
         request_tensor: &B,
         padding_token: &B,
     ) {
@@ -243,7 +245,7 @@ M: Autoregressive<B> + Send + Sync + 'static
 
 
     async fn update_state_for_output(
-        inputs: &mut Option<B>,
+        inputs: &mut Option<B::Unsqueezed>,
         output: &B,
         stop_token: &B,
         batch_items: &mut Vec<BatchItem<B>>,
@@ -321,9 +323,8 @@ M: Autoregressive<B> + Send + Sync + 'static
 }
 
 
-impl <B, M, const S: usize> Drop for AutoregressiveBatchInference<B, M, S>
-where B: Backend,
-      M: Autoregressive<B> + Send + Sync + 'static
+impl <B, const S: usize> Drop for AutoregressiveBatchInference<B, S>
+where B: Backend + LowerRankedTensorOps,
 {
     fn drop(&mut self) {
         self.shutdown();
@@ -332,9 +333,9 @@ where B: Backend,
 
 
 #[async_trait]
-impl <B, M, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, M, S>
-where B: Backend,
-      M: Autoregressive<B> + Send + Sync + 'static {
+impl <B, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, S>
+where B: Backend + LowerRankedTensorOps,
+{
     async fn run(&self, item: B) -> ItemStream<B> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(

@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "crates/*",
-    "examples/candle-example",
-    "examples/candle-transformer"
+    "examples/*"
 ]
 resolver = "2"
 
@@ -15,6 +14,8 @@ version = "0.1.0"
 
 
 [workspace.dependencies]
+candle-core = { version = "0.8.4" }
+burn = { version = "0.16.1" }
 async-trait = { version = "0.1.88" }
 futures = {version = "0.3.31" }
-tokio = { version = "1.44.1", features = ["sync", "time", "rt"] }
+tokio = { version = "1.44.1"}
