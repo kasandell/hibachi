@@ -1,6 +1,4 @@
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
-use uuid::Uuid;
 
 /// # QueueItem
 ///
@@ -23,6 +21,7 @@ use uuid::Uuid;
 /// * `T` - The type of the results that will be sent back
 pub struct QueueItem<Q, T> {
     /// The input value to be processed
+    #[allow(dead_code)]
     input: Q,
 
     /// Channel for sending results back to the requester
@@ -40,6 +39,7 @@ impl<Q, T> QueueItem<Q, T> {
     /// # Returns
     ///
     /// A new `QueueItem` instance
+    #[allow(dead_code)]
     pub fn new(input: Q, sender: UnboundedSender<T>) -> Self {
         Self {
             input,
@@ -52,6 +52,7 @@ impl<Q, T> QueueItem<Q, T> {
     /// # Returns
     ///
     /// A reference to the input that needs to be processed
+    #[allow(dead_code)]
     pub fn input(&self) -> &Q {
         &self.input
     }
@@ -65,6 +66,7 @@ impl<Q, T> QueueItem<Q, T> {
     /// # Returns
     ///
     /// A clone of the sender for sending results
+    #[allow(dead_code)]
     pub fn sender(&self) -> UnboundedSender<T> {
         self.sender.clone()
     }
@@ -87,10 +89,12 @@ impl<Q, T> AsRef<UnboundedSender<T>> for QueueItem<Q, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
+    use tokio::sync::mpsc::unbounded_channel;
 
-    #[tokio::test]
+    #[test]
     async fn test_queue_item_new() {
-        let (tx, _rx) = mpsc::unbounded_channel::<String>();
+        let (tx, _rx) = unbounded_channel::<String>();
         let input = 42;
 
         let queue_item = QueueItem::new(input, tx);
@@ -98,9 +102,9 @@ mod tests {
         assert_eq!(*queue_item.input(), 42, "Input should match the provided value");
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_queue_item_sender() {
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = unbounded_channel::<String>();
         let input = "test_input";
 
         let queue_item = QueueItem::new(input, tx);
@@ -114,9 +118,9 @@ mod tests {
         assert_eq!(received, Some("test message".to_string()), "Should receive message sent through the sender");
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_as_ref_implementation() {
-        let (tx, mut rx) = mpsc::unbounded_channel::<i32>();
+        let (tx, mut rx) = unbounded_channel::<i32>();
         let input = "as_ref_test";
 
         let queue_item = QueueItem::new(input, tx);
@@ -132,7 +136,7 @@ mod tests {
         assert_eq!(received, Some(42), "Should receive message sent through the sender reference");
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_with_different_types() {
         // Test with more complex types
         #[derive(Debug, PartialEq)]
@@ -146,7 +150,7 @@ mod tests {
             original: String,
         }
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<ResultType>();
+        let (tx, mut rx) = unbounded_channel::<ResultType>();
         let input = InputType { value: "complex input".to_string() };
 
         let queue_item = QueueItem::new(input, tx);
@@ -164,13 +168,13 @@ mod tests {
         let received = rx.recv().await;
         assert!(received.is_some(), "Should receive a message");
         let result = received.unwrap();
-        assert_eq!(result.processed, true, "Result should be marked as processed");
+        assert!(result.processed, "Result should be marked as processed");
         assert_eq!(result.original, "complex input", "Result should contain original input");
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_multiple_senders() {
-        let (tx, mut rx) = mpsc::unbounded_channel::<&str>();
+        let (tx, mut rx) = unbounded_channel::<&str>();
         let input = 100;
 
         let queue_item = QueueItem::new(input, tx);

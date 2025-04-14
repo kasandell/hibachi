@@ -4,6 +4,7 @@ use crate::constant::{BATCH_DIM, SEQ_DIM};
 /// Return a vector of indices of dimension `0` (the batch size dimension)
 ///  where the token (dimension `1`) equals our stop token
 /// outputs of dimensions (batch, ...tok), stop_token of dimensions (1, ...tok)
+#[allow(dead_code)]
 pub(crate) fn where_equals_stop_token<B>(
     outputs: &B,
     stop_token: &B,
@@ -17,15 +18,16 @@ pub(crate) fn where_equals_stop_token<B>(
     // element wise equal
     let eq =  outputs.eq(&element_wise_stop);
 
-    let indices = eq.idx_where_all_true(0);
 
-    indices
+
+    eq.idx_where_all_true(0)
 }
 
 
 /// Concatenate a tensor of rank 2 to the end of a tensor of rank 3,
 /// along dimension 1.
 /// Assuming that input is of shape (batch, seq, ...), and output is of (batch, ...)
+#[allow(dead_code)]
 pub(crate) fn concat_output<B>(input: &B::Unsqueezed, output: &B) -> B::Unsqueezed
 where B: Backend + Unsqueezable
 {
@@ -38,6 +40,7 @@ where B: Backend + Unsqueezable
 /// Given a max sequence length, trim the tensor to be
 /// max_sequence_length long, dropping elements from the front of the tensor
 /// along the seq dimension (`2`)
+#[allow(dead_code)]
 pub fn trim_sequence<B>(
     tensor: &Option<B>,
     max_sequence_length: usize
@@ -63,6 +66,7 @@ where B: Backend
 }
 
 
+#[allow(dead_code)]
 pub(crate) fn pad_all_sequences<B>(
     active_tensor: &B::Unsqueezed,
     amount: usize,
@@ -70,13 +74,12 @@ pub(crate) fn pad_all_sequences<B>(
 ) -> B::Unsqueezed
 where B: Backend + Unsqueezable
 {
-    let active_dims = active_tensor.shape();
-
     let padding = padding_token.unsqueeze(0).repeat(0, amount);
     B::Unsqueezed::cat(&[active_tensor.clone(), padding], 1)
 }
 
 // active tensor of shape (batch, seq, ..), sequence in (seq, ...)
+#[allow(dead_code)]
 pub(crate) fn add_sequence_to_outside_of_slot<B>(
     active_tensor: &B::Unsqueezed,
     sequence: &B,
@@ -88,6 +91,7 @@ where B: Backend + Unsqueezable,
 
 
 // active tensor of shape (batch, seq, ..), sequence in (seq, ...)
+#[allow(dead_code)]
 pub(crate) fn pop_sequence_from_slot<B>(
     active_tensor: &mut Option<B>,
     index: usize,
@@ -108,6 +112,7 @@ where B: Backend
 }
 
 // sequence of shape (seq, ...), padding of shape (1, ...)
+#[allow(dead_code)]
 pub(crate) fn pad_single_sequence<B>(
     sequence: &B,
     amount: usize,
@@ -123,6 +128,7 @@ where B: Backend
 }
 
 
+#[allow(dead_code)]
 pub(crate) fn slice_tensor_by_batch_dimension<B>(
     tensor: B
 ) -> Vec<B>

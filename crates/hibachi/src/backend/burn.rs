@@ -1,7 +1,6 @@
 //! The burn implementation for backend provision.
 //! Since burn Tensor are constrained with const generics, we must macro apply the given
 //! lower rank and core operations
-use std::fmt::{Debug, Display};
 use super::{Backend, Unsqueezable};
 use burn::prelude::{Tensor, Backend as BurnBackend};
 use burn::tensor::{BasicOps};

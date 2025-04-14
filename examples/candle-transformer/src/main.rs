@@ -7,7 +7,6 @@ use std::sync::Arc;
 use candle_core::{Tensor, Device};
 use hibachi::autoregressive::{
     AutoregressiveBatchInference,
-    Autoregressive,
     AutoregressiveBatcher
 };
 use futures::stream::StreamExt;

@@ -38,7 +38,7 @@ impl Model {
         let llama = Llama::load(vb, &config).expect("Create llama");
         let tokenizer = Tokenizer::from_file(tokenizer_filename).expect("Create tokenizer");
 
-        let mut logits_processor = {
+        let logits_processor = {
             let temperature = temperature.unwrap_or(1.0);
             let sampling = if temperature <= 0. {
                 Sampling::ArgMax
@@ -55,7 +55,7 @@ impl Model {
 
         Self {
             model: llama,
-            tokenizer: tokenizer,
+            tokenizer,
             logits: Mutex::new(logits_processor),
             cache: Mutex::new(cache)
         }
@@ -114,8 +114,8 @@ impl Autoregressive<Tensor> for Model {
     async fn forward(&self, tensor: Tensor) -> Tensor {
         let mut cache = self.cache.lock().await;
         let sq_len = tensor.dims()[1];
-        let logits = self.model.forward(&tensor, sq_len, &mut *cache).unwrap();
+        let logits = self.model.forward(&tensor, sq_len, &mut cache).unwrap();
         let mut logits_processor = self.logits.lock().await;
-        batchwise_logits(&mut *logits_processor, logits)
+        batchwise_logits(&mut logits_processor, logits)
     }
 }

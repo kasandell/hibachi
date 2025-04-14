@@ -30,6 +30,7 @@ pub struct BatchItem<T> {
     id: Uuid,
 
     /// Current length of the sequence associated with this batch item
+    #[allow(dead_code)]
     sequence_length: usize,
 
     /// Channel for sending processed results back to the requester
@@ -48,6 +49,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// A new `BatchItem` instance with a randomly generated UUID
+    #[allow(dead_code)]
     pub fn new(sequence_length: usize, sender: mpsc::UnboundedSender<T>) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -61,6 +63,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// A reference to the unbounded sender channel
+    #[allow(dead_code)]
     pub fn sender(&self) -> &mpsc::UnboundedSender<T> {
         &self.sender
     }
@@ -73,6 +76,7 @@ impl<T> BatchItem<T> {
     /// # Parameters
     ///
     /// * `amount` - The number of tokens/elements to add to the sequence length
+    #[allow(dead_code)]
     pub fn increment_sequence_length(&mut self, amount: usize) {
         self.sequence_length += amount
     }
@@ -85,6 +89,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// The current sequence length
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.sequence_length
     }
@@ -94,6 +99,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// `true` if the sequence length is zero, `false` otherwise
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.sequence_length == 0
     }
@@ -103,6 +109,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// The UUID of this batch item
+    #[allow(dead_code)]
     pub fn id(&self) -> Uuid {
         self.id
     }
@@ -118,6 +125,7 @@ impl<T> BatchItem<T> {
     /// # Returns
     ///
     /// The maximum sequence length found, or 0 if the collection is empty
+    #[allow(dead_code)]
     pub fn max_seq_len_for_batch_items(
         batch_items: &[BatchItem<T>]
     ) -> usize {
@@ -191,7 +199,7 @@ mod test {
         );
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_max_seq_len_for_single_item() {
         let (tx, _rx) = unbounded_channel::<i32>();
         let item = BatchItem::new(42, tx);
@@ -272,8 +280,6 @@ mod test {
     #[test]
     async fn test_as_ref_implementation() {
         let (tx, mut rx) = mpsc::unbounded_channel::<i32>();
-        let input = "as_ref_test";
-
         let queue_item = BatchItem::new(0, tx);
 
         // Use the AsRef implementation to get a reference to the sender

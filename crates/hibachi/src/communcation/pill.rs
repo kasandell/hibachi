@@ -36,6 +36,7 @@ impl Pill {
     /// # Returns
     ///
     /// A new `Pill` instance that will propagate panics when dropped during a panic.
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {}
     }

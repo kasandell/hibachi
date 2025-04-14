@@ -50,7 +50,7 @@ impl Backend for Tensor {
     }
 
     fn slice(&self, dimension: usize, seq_start_idx: usize, len: usize) -> Self {
-        self.narrow(dimension, seq_start_idx, len).expect(&format!("Unwraps: {}, {}, {:?}", seq_start_idx, len, self.dims()))
+        self.narrow(dimension, seq_start_idx, len).unwrap_or_else(|_| panic!("Unwraps: {}, {}, {:?}", seq_start_idx, len, self.dims()))
     }
 
     fn idx_where_all_true(&self, dim: usize) -> Vec<usize> {

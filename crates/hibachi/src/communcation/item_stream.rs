@@ -42,6 +42,7 @@ impl<T> ItemStream<T> {
     /// # Returns
     ///
     /// A new `ItemStream` instance wrapping the provided receiver
+    #[allow(dead_code)]
     pub fn new(receiver: mpsc::UnboundedReceiver<T>) -> Self {
         Self {
             receiver,

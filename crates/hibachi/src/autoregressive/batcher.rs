@@ -40,7 +40,7 @@ where B: Backend + Unsqueezable,
     where M: Autoregressive<B> + Send + Sync + 'static,
     {
         let padding_shape = padding_token.shape();
-        assert!(padding_shape.len() > 0, "padding shape must be of rank 1 or higher");
+        assert!(!padding_shape.is_empty(), "padding shape must be of rank 1 or higher");
         assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
 
         let waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>> = Default::default();
@@ -54,7 +54,7 @@ where B: Backend + Unsqueezable,
         let work_notifier_clone = work_notifier.clone();
         let stop_clone = stop_token.clone();
         let padding_clone = padding_token.clone();
-        let pill = Pill {};
+        let pill = Pill::new();
         let background_task = Some(tokio::spawn(async move {
             // by moving this in here, when inference loop panics and this thread dies
             // drop will be called, causing a panic escalation
@@ -139,7 +139,7 @@ where B: Backend + Unsqueezable,
     }
 
     pub async fn active_count(&self) -> usize {
-        self.active_count.clone().lock().await.clone()
+        *self.active_count.clone().lock().await
     }
 
     #[inline]
