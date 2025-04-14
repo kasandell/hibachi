@@ -1,3 +1,6 @@
+//! The burn implementation for backend provision.
+//! Since burn Tensor are constrained with const generics, we must macro apply the given
+//! lower rank and core operations
 use std::fmt::{Debug, Display};
 use super::{Backend, LowerRankedTensorOps};
 use burn::prelude::{Tensor, Backend as BurnBackend};
@@ -34,7 +37,7 @@ macro_rules! impl_core_tensor_ops {
                 )
             }
 
-            fn eq(&self, other: &Self) -> impl Backend {//Tensor<B, $d, Bool> {
+            fn eq(&self, other: &Self) -> impl Backend {
                 let x = self.clone().equal(other.clone());
                 x
             }

@@ -1,3 +1,5 @@
+//! The implementation for candle backend.
+//! Since candle uses a single tensor type, we implement generic over Tensor
 use super::{Backend, LowerRankedTensorOps};
 use candle_core::Tensor;
 
