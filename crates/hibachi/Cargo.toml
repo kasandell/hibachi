@@ -6,11 +6,13 @@ resolver = "2"
 
 [features]
 candle = ["dep:candle-core"]
+burn = ["dep:burn"]
 autoregressive = []
 
 [dependencies]
-candle-core = { version = "0.8.4" , optional = true }
-tokio = { workspace = true }
+candle-core = { workspace = true, optional = true }
+burn = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
 uuid = { version = "1.16.0", features = ["v4"] }

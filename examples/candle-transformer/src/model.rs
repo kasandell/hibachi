@@ -1,15 +1,14 @@
-use std::sync::Arc;
-use hibachi_core::Autoregressive;
 use async_trait::async_trait;
-use rand::{thread_rng, Rng};
+use rand::{Rng};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
-use hf_hub::{api::sync::Api, Cache, Repo, RepoType};
+use hf_hub::{api::sync::Api, Repo, RepoType};
 use tokenizers::Tokenizer;
 use candle_transformers::models::llama as model;
 use model::{Llama, LlamaConfig};
 use tokio::sync::Mutex;
+use hibachi::autoregressive::Autoregressive;
 
 const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-1.7B";
 const EOS_TOKEN: &str = "<|endoftext|>";

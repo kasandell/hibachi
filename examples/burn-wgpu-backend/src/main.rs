@@ -1,46 +1,49 @@
 mod model;
 
 use std::sync::Arc;
-use candle_core::{Tensor, Device, DType};
-use hibachi::autoregressive::{AutoregressiveBatchInference, AutoregressiveBatcher};
+use burn::backend::wgpu::{Wgpu, WgpuDevice};
+use burn::tensor::Tensor;
+use hibachi::autoregressive::{
+AutoregressiveBatcher,
+Autoregressive,
+AutoregressiveBatchInference
+};
 use futures::stream::StreamExt;
 use crate::model::Model;
 
+type Backend = Wgpu;
+
 #[tokio::main]
 async fn main() {
+    let device = WgpuDevice::DefaultDevice;
     let model = Model::new();
 
 
-    let device = Device::Cpu;
-    // will be of rank + 1
-    let stop_token = Tensor::ones(
-        &[1],
-        DType::U8,
-        &device
-    ).unwrap();
+    let stop_token = Tensor::<Backend, 1>::from_data(
+        [1,],
+        &device,
+    );
+    let padding_token = Tensor::<Backend, 1>::from_data(
+        [0,],
+        &device,
+    );
 
-    let padding_token = Tensor::zeros(
-        &[1],
-        DType::U8,
-        &device
-    ).unwrap();
-
-    let bi = Arc::new(AutoregressiveBatchInference::<Tensor, 10>::new(
+    let bi = Arc::new(AutoregressiveBatchInference::<Tensor<Backend, 1>, 10>::new(
         model,
         &stop_token,
         &padding_token
     ));
 
     let handles = (0..100).map(|e| {
+        let device = device.clone();
         let bic = bi.clone();
 
         tokio::spawn(async move {
             async {
-                let device = Device::Cpu;
-                let toks = Tensor::zeros(&[3],
-                                         DType::U8,
-                                         &device,
-                ).expect("creates start token");
+                let toks = Tensor::<Backend, 1>::from_data(
+                        [2, 2, 0],
+                    &device,
+                );
                 let mut it = bic.clone().run(toks).await;
                 let mut count = 0;
                 while let Some(_tok) = it.next().await {
@@ -49,7 +52,7 @@ async fn main() {
                 println!("Index {} count {}", e, count);
             }.await
         })
-    }).collect::<Vec<_>>();
+    }).collect::<Vec<_>>();  // Collect into Vec to avoid lazy evaluation
 
     // Wait for all tasks to complete
     for handle in futures::future::join_all(handles).await {

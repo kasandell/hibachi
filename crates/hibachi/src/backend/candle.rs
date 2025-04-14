@@ -1,20 +1,18 @@
-use super::Backend;
+use super::{Backend, LowerRankedTensorOps};
 use candle_core::Tensor;
 
+
+impl LowerRankedTensorOps for Tensor {
+    type Unsqueezed = Tensor;
+
+    fn unsqueeze(&self, dim: usize) -> Self::Unsqueezed {
+        self.unsqueeze(dim).unwrap()
+    }
+}
+
 impl Backend for Tensor {
-    type DType = candle_core::DType;
-    type Device = candle_core::Device;
-
-    fn shape(&self) -> &[usize] {
-        self.shape().dims()
-    }
-
-    fn device(&self) -> &Self::Device {
-        self.device()
-    }
-
-    fn dtype(&self) -> Self::DType {
-        self.dtype()
+    fn shape(&self) -> Vec<usize> {
+        self.dims().to_vec()
     }
 
     fn cat(tensors: &[Self], dim: usize) -> Self {
@@ -23,20 +21,8 @@ impl Backend for Tensor {
         ).unwrap()
     }
 
-    fn squeeze(&self, dim: usize) -> Self {
-        self.squeeze(dim).unwrap()
-    }
-
-    fn unsqueeze(&self, dim: usize) -> Self {
-        self.unsqueeze(dim).unwrap()
-    }
-
-    fn eq(&self, other: &Self) -> Self {
+    fn eq(&self, other: &Self) -> impl Backend {
         self.eq(other).unwrap()
-    }
-
-    fn to_vec_u8(&self) -> Vec<u8> {
-        self.to_vec1::<u8>().unwrap()
     }
 
     fn vectorize_dim(&self, dim: usize) -> Vec<Self> {
@@ -65,12 +51,41 @@ impl Backend for Tensor {
         self.narrow(dimension, seq_start_idx, len).expect(&format!("Unwraps: {}, {}, {:?}", seq_start_idx, len, self.dims()))
     }
 
-    fn broadcast_as(&self, dims: &[usize]) -> Self {
-        self.broadcast_as(dims).unwrap()
-    }
+    fn idx_where_all_true(&self, dim: usize) -> Vec<usize> {
+        let dims = self.dims();
+        if dim >= dims.len() {
+            return vec![]; // Invalid dimension
+        }
 
-    fn all_dim(&self, dim: usize) -> Self {
-        self.min(dim).unwrap()
+        let dim_size = dims[dim];
+        let mut result = Vec::new();
+        for i in 0..dim_size {
+            // Use narrow instead of index
+            let slice = self.narrow(dim, i, 1).unwrap();
+
+            // Reshape to flatten all other dimensions
+            let mut new_shape: Vec<usize> = vec![1; dims.len()];
+            new_shape[dim] = 1;
+            let flattened_size: usize = dims.iter()
+                .enumerate()
+                .filter(|&(d, _)| d != dim)
+                .map(|(_, &s)| s)
+                .product();
+            new_shape.push(flattened_size);
+
+            let reshaped = slice.reshape(&*new_shape).unwrap();
+            let squeezed = reshaped.squeeze(dim).unwrap();
+
+            // Convert to CPU and check if all elements are true
+            let cpu_tensor = squeezed.to_device(&candle_core::Device::Cpu).unwrap();
+            let bool_data = cpu_tensor.to_vec1::<u8>().unwrap();
+
+            if bool_data.iter().all(|&v| v == 1) {
+                result.push(i);
+            }
+        }
+
+        result
     }
 
     fn pop(&self, dim: usize, index: usize) -> Self {
@@ -95,5 +110,11 @@ impl Backend for Tensor {
         let second_part = self.narrow(dim, index + 1, dim_size - index - 1).unwrap();
 
         Tensor::cat(&[&first_part, &second_part], dim).unwrap()
+    }
+
+    fn repeat(&self, dim: usize, times: usize) -> Self {
+        let mut dims = self.dims().to_vec();
+        dims[dim] = times;
+        self.broadcast_as(dims).unwrap()
     }
 }
