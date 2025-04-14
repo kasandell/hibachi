@@ -25,8 +25,6 @@ use tokio::sync::mpsc;
 /// - It will return `None` when all senders are dropped
 /// - It has no backpressure mechanism
 ///
-/// Note: As the TODO comment suggests, this might be better placed in
-/// an autoregressive-specific module.
 pub struct ItemStream<T> {
     /// The underlying channel receiver
     receiver: mpsc::UnboundedReceiver<T>
