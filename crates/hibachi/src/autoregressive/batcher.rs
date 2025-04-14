@@ -8,12 +8,12 @@ use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
 use crate::communcation::{ItemStream, BatchItem, QueueItem, Pill};
-use crate::backend::{Backend, LowerRankedTensorOps};
+use crate::backend::{Backend, Unsqueezable};
 use super::{Autoregressive, AutoregressiveBatcher};
 use crate::tensor::*;
 
 pub struct AutoregressiveBatchInference<B, const S: usize>
-where B: Backend + LowerRankedTensorOps
+where B: Backend + Unsqueezable
 {
     running: Arc<AtomicBool>,
     background_task: Option<JoinHandle<()>>,
@@ -23,7 +23,7 @@ where B: Backend + LowerRankedTensorOps
 }
 
 impl <B, const S: usize> AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 
 {
     /// Instantiate a new batched regressive inference engine on top of `model`,
@@ -324,7 +324,7 @@ where B: Backend + LowerRankedTensorOps,
 
 
 impl <B, const S: usize> Drop for AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 {
     fn drop(&mut self) {
         self.shutdown();
@@ -334,7 +334,7 @@ where B: Backend + LowerRankedTensorOps,
 
 #[async_trait]
 impl <B, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 {
     async fn run(&self, item: B) -> ItemStream<B> {
         let (tx, rx) = mpsc::unbounded_channel();

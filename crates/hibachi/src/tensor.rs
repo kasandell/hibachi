@@ -1,4 +1,4 @@
-use crate::backend::{Backend, LowerRankedTensorOps};
+use crate::backend::{Backend, Unsqueezable};
 use crate::constant::{BATCH_DIM, SEQ_DIM};
 
 /// Return a vector of indices of dimension `0` (the batch size dimension)
@@ -27,7 +27,8 @@ pub(crate) fn where_equals_stop_token<B>(
 /// along dimension 1.
 /// Assuming that input is of shape (batch, seq, ...), and output is of (batch, ...)
 pub(crate) fn concat_output<B>(input: &B::Unsqueezed, output: &B) -> B::Unsqueezed
-where B: Backend + LowerRankedTensorOps {
+where B: Backend + Unsqueezable
+{
     B::Unsqueezed::cat(
         &[ input.clone(), output.clone().unsqueeze(SEQ_DIM)], SEQ_DIM
     )
@@ -67,7 +68,8 @@ pub(crate) fn pad_all_sequences<B>(
     amount: usize,
     padding_token: &B,
 ) -> B::Unsqueezed
-where B: Backend + LowerRankedTensorOps {
+where B: Backend + Unsqueezable
+{
     let active_dims = active_tensor.shape();
 
     let padding = padding_token.unsqueeze(0).repeat(0, amount);
@@ -79,7 +81,7 @@ pub(crate) fn add_sequence_to_outside_of_slot<B>(
     active_tensor: &B::Unsqueezed,
     sequence: &B,
 ) -> B::Unsqueezed
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 {
     B::Unsqueezed::cat(&[active_tensor.clone(), sequence.unsqueeze(0)], 0)
 }

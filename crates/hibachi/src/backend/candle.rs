@@ -1,10 +1,10 @@
 //! The implementation for candle backend.
 //! Since candle uses a single tensor type, we implement generic over Tensor
-use super::{Backend, LowerRankedTensorOps};
+use super::{Backend, Unsqueezable};
 use candle_core::Tensor;
 
 
-impl LowerRankedTensorOps for Tensor {
+impl Unsqueezable for Tensor {
     type Unsqueezed = Tensor;
 
     fn unsqueeze(&self, dim: usize) -> Self::Unsqueezed {

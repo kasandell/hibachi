@@ -2,13 +2,13 @@
 //! Since burn Tensor are constrained with const generics, we must macro apply the given
 //! lower rank and core operations
 use std::fmt::{Debug, Display};
-use super::{Backend, LowerRankedTensorOps};
+use super::{Backend, Unsqueezable};
 use burn::prelude::{Tensor, Backend as BurnBackend};
 use burn::tensor::{BasicOps};
 
 macro_rules! impl_lower_ranked_tensor_ops {
     ($d:literal) => {
-        impl <B, K> LowerRankedTensorOps for Tensor<B, $d, K>
+        impl <B, K> Unsqueezable for Tensor<B, $d, K>
         where B: BurnBackend,
         K: BasicOps<B> + 'static {
             type Unsqueezed = Tensor<B, {$d + 1}, K>;
