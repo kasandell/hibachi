@@ -7,6 +7,8 @@ pub struct QueueItem<Q, T> {
 }
 
 impl <Q, T> QueueItem<Q, T> {
+    /// Create a new queue item, with an arbitrary input, and a sender over arbitrary types.
+    /// We make no constraints on the types used, here, as they are effectively constrained by outer types.
     pub fn new(input: Q, sender: mpsc::UnboundedSender<T>) -> Self {
         Self {
             input,

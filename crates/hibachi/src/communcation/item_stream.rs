@@ -4,6 +4,7 @@ use futures::Stream;
 use tokio::sync::mpsc;
 
 
+// TODO: this might belong in autoregressive only
 /// Asynchronous stream of items to be returned by the batcher
 pub struct ItemStream<T> {
     receiver: mpsc::UnboundedReceiver<T>
