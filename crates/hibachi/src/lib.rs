@@ -1,6 +1,6 @@
-//! # Batched Inference Engine
+//! # Hibachi
 //!
-//! A high-performance tensor processing library for efficiently batching
+//! A **hi**gh-performance **batch** tensor processing library for efficiently batching
 //! autoregressive model inference across multiple concurrent requests.
 //!
 //! ## Overview
@@ -21,6 +21,13 @@
 //!
 //! The library is built around several key abstractions:
 //!
+//! ### Assumptions
+//! Regardless of backend used, hibachi reserves two dimensions with special meanings:
+//!  - The `0th` dimension is reserved as the batch dimension
+//!  - The `1st` dimension is reserved as the sequence dimension
+//!  - Tensors may fill in other dimensions
+//!
+//!
 //! ### Backend Traits
 //!
 //! The `Backend` and `Unsqueezable` traits define the interface that any tensor
@@ -33,25 +40,11 @@
 //! outputs sequentially, while the `AutoregressiveBatcher` trait encapsulates
 //! the logic for efficiently batching multiple generation requests.
 //!
-//! ### Communication
-//!
-//! The library provides utilities for asynchronous communication between
-//! components, including `ItemStream` for streaming generated tokens back to clients.
-//!
-//!
 //! ## Features
 //!
 //! - **autoregressive** - Enables autoregressive model batching functionality
-//!
-//! ## Performance Considerations
-//!
-//! The batched inference engine is designed to maximize throughput when processing
-//! multiple requests concurrently. Key optimizations include:
-//!
-//! - Dynamic batch construction and management
-//! - Efficient tensor manipulation for sequence concatenation and slicing
-//! - Automatic detection and handling of completed sequences
-//! - Asynchronous processing to maximize hardware utilization
+//! - **candle** - Enables candle backend
+//! - **burn** - Enables burn backend
 //!
 //! ## Implementation Details
 //!
@@ -61,13 +54,17 @@
 //!
 //! Tensor operations are abstracted through the `Backend` trait, allowing for
 //! different tensor implementations to be used without changing the core batching logic.
+//!
 
 
-mod tensor;
-mod constant;
 mod communication;
+mod tensor;
 
 pub mod backend;
 
+/// Constants for client reference
+pub use tensor::constant;
+
 #[cfg(feature = "autoregressive")]
 pub mod autoregressive;
+

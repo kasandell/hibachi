@@ -10,7 +10,7 @@ use tokio::time::error::Elapsed;
 use crate::communication::{ItemStream, BatchItem, QueueItem, Pill};
 use crate::backend::{Backend, Unsqueezable};
 use super::{Autoregressive, AutoregressiveBatcher};
-use crate::tensor::*;
+use crate::tensor::operations::*;
 
 /// # AutoregressiveBatchInference
 ///

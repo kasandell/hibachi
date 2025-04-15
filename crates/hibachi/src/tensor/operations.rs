@@ -1,5 +1,5 @@
 use crate::backend::{Backend, Unsqueezable};
-use crate::constant::{BATCH_DIM, SEQ_DIM};
+use super::constant::{BATCH_DIM, SEQ_DIM};
 
 /// Identifies batch indices where generated tokens match the stop token.
 ///
