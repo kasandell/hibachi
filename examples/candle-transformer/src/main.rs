@@ -13,8 +13,6 @@ use futures::stream::StreamExt;
 use crate::model::Model;
 use crate::token_output_stream::TokenOutputStream;
 
-type Tensor1D = Tensor;
-type Tensor2D = Tensor;
 
 #[tokio::main]
 async fn main() {
@@ -29,7 +27,7 @@ async fn main() {
         &padding_token,
     ));
 
-    let handles = (0..2).map(|e| {
+    let handles = (0..2).map(|_e| {
         let bic = bi.clone();
         let tc = tokenizer.clone();
         let mut token_stream = TokenOutputStream::new(tc.clone());
@@ -40,20 +38,20 @@ async fn main() {
                 let sentence = tc.encode("Echo: 'hi'. Output: ", true).expect("ok")
                     .get_ids()
                     .to_vec();
-                let toks = Tensor::new(sentence, &device).unwrap();//?.unsqueeze(0)?;
+                let toks = Tensor::new(sentence, &device).unwrap();
                 let mut it = bic.clone().run(toks).await;
                 let mut count = 0;
                 let mut output = vec![];
                 while let Some(tok) = it.next().await {
                     let value = tok.to_scalar::<u32>().expect("ok");
-                    //println!("Index {} tok {}", e, value);
                     if let Some(out) = token_stream.next_token(value).unwrap() {
-                        print!("{}", tc.id_to_token(value).unwrap().replace("Ġ", " "));
+                        print!("{}", out);
                         let _ = io::stdout().flush();
                     };
                     output.push(value);
                     count+=1;
                 }
+                println!("Generated {}", count);
             }.await
         })
     }).collect::<Vec<_>>();  // Collect into Vec to avoid lazy evaluation

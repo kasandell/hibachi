@@ -1,3 +1,4 @@
+/// Credit: https://github.com/huggingface/candle/blob/main/candle-examples/src/token_output_stream.rs
 use candle_core::Result;
 
 /// This is a wrapper around a tokenizer to ensure that tokens can be returned to the user in a
@@ -9,6 +10,7 @@ pub struct TokenOutputStream {
     current_index: usize,
 }
 
+#[allow(dead_code)]
 impl TokenOutputStream {
     pub fn new(tokenizer: tokenizers::Tokenizer) -> Self {
         Self {

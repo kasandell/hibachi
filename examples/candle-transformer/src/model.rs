@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use rand::{Rng};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
@@ -11,6 +10,8 @@ use tokio::sync::Mutex;
 use hibachi::autoregressive::Autoregressive;
 
 const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-1.7B";
+
+#[allow(dead_code)]
 const EOS_TOKEN: &str = "<|endoftext|>";
 
 pub struct Model {
@@ -24,13 +25,17 @@ impl Model {
     pub fn new(temperature: Option<f64>, top_k: Option<usize>, top_p: Option<f64>) -> Self  {
         let dtype = DType::F16;
         let device = Device::Cpu;
+
         let api = Api::new().expect("creates api");
         let revision = "main".to_string();
         let api = api.repo(Repo::with_revision(MODEL_ID.to_string(), RepoType::Model, revision));
+
         let tokenizer_filename = api.get("tokenizer.json").expect("finds tokenizer");
         let config_filename = api.get("config.json").expect("Finds config");
+
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
+
         let filenames = vec![api.get("model.safetensors").unwrap()];
         let cache = model::Cache::new(false, dtype, &config, &device).unwrap();
 
@@ -90,7 +95,6 @@ fn batchwise_logits(
 ) -> Tensor {
 
     let batch_size = logits.dims()[0];
-    let vocab_size = logits.dims()[1];
 
     // Initialize a vector to hold the sampled tokens for each batch item
     let mut sampled_tokens = Vec::with_capacity(batch_size);

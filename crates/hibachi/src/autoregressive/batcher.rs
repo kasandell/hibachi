@@ -114,8 +114,8 @@ where B: Backend + Unsqueezable,
 
 
         let background_task = Some(tokio::spawn(async move {
-            /// By moving this in here, when inference loop panics and this thread dies
-            /// drop will be called, causing a panic escalation
+            // By moving this in here, when inference loop panics and this thread dies
+            // drop will be called, causing a panic escalation
             #[allow(unused_variables)]
             let panic_escalator = pill;
             Self::run_inference_loop_batch_item(
