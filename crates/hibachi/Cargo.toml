@@ -9,6 +9,7 @@ authors = [
     "Kyle Sandell"
 ]
 description = "Asynchronous Batched Inference Platform"
+readme = "../../README.md"
 
 
 [features]
