@@ -59,6 +59,8 @@
 //!
 
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 mod communication;
 mod tensor;
 mod core;
@@ -68,6 +70,7 @@ pub mod backend;
 /// Constants for client reference
 pub use tensor::constant;
 
+#[cfg_attr(docsrs, doc(cfg(feature = "autoregressive")))]
 #[cfg(feature = "autoregressive")]
 pub mod autoregressive;
 
