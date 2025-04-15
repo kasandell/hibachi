@@ -22,3 +22,17 @@ uuid = { version = "1.16.0", features = ["v4"] }
 tokio = { workspace = true, features = ["sync", "time", "rt", "test-util", "macros"] }
 burn = { workspace = true, features = ["ndarray"]}
 candle-core = { workspace = true }
+
+
+[[example]]
+name = "burn"
+path = "../../examples/burn-wgpu-backend"
+
+[[example]]
+name = "candle"
+path = "../../examples/candle-example"
+
+[[example]]
+name = "candle transformer"
+path = "../../examples/candle-transformer"
+

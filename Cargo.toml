@@ -18,16 +18,4 @@ async-trait = { version = "0.1.88" }
 futures = {version = "0.3.31" }
 tokio = { version = "1.44.1"}
 
-[[example]]
-name = "burn"
-path = "examples/burn-wgpu-backend"
-
-[[example]]
-name = "candle"
-path = "examples/candle-example"
-
-[[example]]
-name = "candle transformer"
-path = "examples/candle-transformer"
-
 
