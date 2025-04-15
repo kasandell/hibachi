@@ -1,46 +1,21 @@
-use std::collections::HashSet;
-use std::panic;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use async_trait::async_trait;
-use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::sync::{oneshot, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
-use super::item_stream::ItemStream;
-use crate::communication::{BatchItem, QueueItem, Pill};
+use crate::autoregressive::Autoregressive;
 use crate::backend::{Backend, Unsqueezable};
-use super::{Autoregressive, AutoregressiveBatcher};
-use crate::tensor::operations::*;
+use crate::communication::{BatchItem, Pill};
+use super::queue_item::QueueItem;
+use async_trait::async_trait;
+use oneshot::channel;
+use crate::feedforward::core_trait::{Feedforward, FeedforwardBatcher};
+use crate::feedforward::item::Item;
+use crate::tensor::operations::{add_sequence_to_outside_of_slot, slice_tensor_by_batch_dimension};
 
-/// # AutoregressiveBatchInference
-///
-/// An implementation of the `AutoregressiveBatcher` trait that provides efficient
-/// batched processing for autoregressive models.
-///
-/// This struct manages an inference pipeline that:
-/// 1. Collects multiple generation requests
-/// 2. Dynamically batches them up to a maximum batch size (`S`)
-/// 3. Processes them through an autoregressive model
-/// 4. Streams results back to each requester
-///
-/// ## Type Parameters
-///
-/// * `B` - The tensor backend type that implements `Backend` and `Unsqueezable`
-/// * `S` - A const generic parameter specifying the maximum batch size
-///
-/// ## Implementation Details
-///
-/// The implementation uses a background task that continuously processes requests
-/// and manages the active tensor state. Key internal mechanisms include:
-///
-/// - A thread-safe queue of waiting requests
-/// - A notification system to efficiently signal when work is available
-/// - Dynamic tensor manipulation to handle variable-length sequences
-/// - Automatic detection and handling of completed sequences
-/// - Resource management to ensure bounded memory usage
-pub struct AutoregressiveBatchInference<B, const S: usize>
-where B: Backend + Unsqueezable
+pub struct FeedforwardBatchInference<B, O, const S: usize>
+where B: Backend, O: Backend
 {
     /// Flag indicating whether the background task should continue running
     running: Arc<AtomicBool>,
@@ -49,7 +24,7 @@ where B: Backend + Unsqueezable
     background_task: Option<JoinHandle<()>>,
 
     /// Thread-safe queue of pending requests waiting to be processed
-    waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
+    waiting_requests: Arc<Mutex<Vec<QueueItem<B, O>>>>,
 
     /// Notification mechanism to signal when new work is available
     work_notifier: Arc<Notify>,
@@ -58,49 +33,18 @@ where B: Backend + Unsqueezable
     active_count: Arc<Mutex<usize>>
 }
 
-impl <B, const S: usize> AutoregressiveBatchInference<B, S>
-where B: Backend + Unsqueezable,
+impl <B, O, const S: usize> FeedforwardBatchInference<B, O, S>
+where B: Backend, O: Backend
 
 {
-    /// Creates a new batched autoregressive inference engine using the provided model.
-    ///
-    /// This constructor initializes the batching system and starts the background
-    /// processing task that will handle incoming requests.
-    ///
-    /// # Parameters
-    ///
-    /// * `model` - The autoregressive model implementation that will process batched requests
-    /// * `stop_token` - Token that signals the end of generation for a sequence
-    /// * `padding_token` - Token used to pad sequences to uniform length within a batch
-    ///
-    /// # Tensor Shape Requirements
-    ///
-    /// Both `stop_token` and `padding_token` must be of one dimension higher than intended.
-    /// For example, for a typical text-based autoregressive model with input shape
-    /// `(batch_size, seq_len)`, both tokens should have shape `[1]`, rather than a rank-0 value.
-    /// This is due to limitations in handling zero-sized tensors.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if:
-    /// - `padding_token` has an empty shape (rank 0)
-    /// - The first dimension of `padding_token` is not 1
-    ///
-    /// # Returns
-    ///
-    /// A new `AutoregressiveBatchInference` instance configured with the provided model and tokens
+
     pub fn new<M>(
         model: M,
-        stop_token: &B,
-        padding_token: &B,
     ) -> Self
-    where M: Autoregressive<B> + Send + Sync + 'static,
+    where M: Feedforward<B, O> + Send + Sync + 'static,
     {
-        let padding_shape = padding_token.shape();
-        assert!(!padding_shape.is_empty(), "padding shape must be of rank 1 or higher");
-        assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
 
-        let waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>> = Default::default();
+        let waiting_requests: Arc<Mutex<Vec<QueueItem<B, O>>>> = Default::default();
         let running = Arc::new(AtomicBool::new(true));
         let active_count = Arc::new(Mutex::new(0));
         let work_notifier = Arc::new(Notify::new());
@@ -109,8 +53,6 @@ where B: Backend + Unsqueezable,
         let active_count_clone = active_count.clone();
         let waiting_clone = waiting_requests.clone();
         let work_notifier_clone = work_notifier.clone();
-        let stop_clone = stop_token.clone();
-        let padding_clone = padding_token.clone();
         let pill = Pill::new();
 
 
@@ -122,8 +64,6 @@ where B: Backend + Unsqueezable,
             Self::run_inference_loop_batch_item(
                 model,
                 running_clone,
-                stop_clone,
-                padding_clone,
                 active_count_clone.clone(),
                 waiting_clone.clone(),
                 work_notifier_clone
@@ -171,15 +111,13 @@ where B: Backend + Unsqueezable,
     async fn run_inference_loop_batch_item<M>(
         model: M,
         running: Arc<AtomicBool>,
-        stop_token: B,
-        padding_token: B,
         active_count: Arc<Mutex<usize>>,
         waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
         work_notifier: Arc<Notify>,
     )
     where M: Autoregressive<B> + Send + Sync + 'static,
     {
-        let active_tensor: Mutex<Option<B::Unsqueezed>> = Mutex::new(None);
+        let active_tensor: Mutex<Option<B>> = Mutex::new(None);
         let mut batch_items: Vec<BatchItem<B>>= vec![];
 
         while running.load(Ordering::SeqCst) {
@@ -206,17 +144,15 @@ where B: Backend + Unsqueezable,
                 *active > 0
             } {
                 let mut lock = active_tensor.lock().await;
-                Self::push_new_requests(&mut lock, items, &mut batch_items, &padding_token).await;
+                Self::push_new_requests(&mut lock, items, &mut batch_items).await;
                 let input = (*lock).clone();
                 match input {
                     None => {}
                     Some(input) => {
                         let output = model.forward(input.clone()).await;
                         Self::send_outputs_to_stream(output.clone(), &batch_items).await;
-                        let mut concatenated: Option<B::Unsqueezed> = Some(concat_output(&input, &output));
-                        Self::update_sequence_lengths(&mut batch_items).await;
-                        Self::update_state_for_output(&mut concatenated, &output, &stop_token, &mut batch_items, active_count.clone()).await;
-                        *lock = concatenated;
+                        batch_items.clear();
+                        *lock = None;
                     }
                 }
             }
@@ -273,7 +209,7 @@ where B: Backend + Unsqueezable,
     #[inline]
     async fn should_process(
         active_count: Arc<Mutex<usize>>,
-        waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>
+        waiting_requests: Arc<Mutex<Vec<QueueItem<B, O>>>>
     ) -> bool {
         let active = active_count.lock().await;
         let has_active_items = *active > 0;
@@ -301,15 +237,14 @@ where B: Backend + Unsqueezable,
         active_tensor: &mut Option<B::Unsqueezed>,
         new_queue_items: Vec<QueueItem<B, B>>,
         batch_items: &mut Vec<BatchItem<B>>,
-        padding_token: &B
     ) {
         for item in new_queue_items.into_iter() {
             let batch_item = BatchItem::new(
-                item.input().shape()[0],
+                0,
                 item.sender().clone(),
             );
             batch_items.push(batch_item);
-            Self::add_to_active_tensor(active_tensor, item.input(), padding_token).await;
+            Self::add_to_active_tensor(active_tensor, item.input()).await;
         }
     }
 
@@ -332,36 +267,18 @@ where B: Backend + Unsqueezable,
     /// - The new sequence is longer than existing ones (pads existing sequences)
     /// - The new sequence is shorter than existing ones (pads the new sequence)
     async fn add_to_active_tensor(
-        active_tensor: &mut Option<B::Unsqueezed>,
+        active_tensor: &mut Option<B>,
         request_tensor: &B,
-        padding_token: &B,
     ) {
         let is_some = active_tensor.is_some();
         if !is_some {
-            *active_tensor = Some(request_tensor.unsqueeze(0));
+            *active_tensor = Some(request_tensor);
             return
         }
         match active_tensor {
-            None => *active_tensor = Some(request_tensor.unsqueeze(0)),
+            None => *active_tensor = Some(request_tensor),
             Some(active_tensor) => {
-                let sequence_dims = request_tensor.shape();
-                let mut rqt = request_tensor.clone();
-                let seq_len = sequence_dims[0];
-                let active_dims = active_tensor.shape();
-                let batch_len = active_dims[1];
-
-                if seq_len > batch_len {
-                    // need to expand active tensor length at the front with padding
-                    let diff = seq_len - batch_len;
-                    let mut new_dims = active_dims.to_vec();
-                    new_dims[1] = seq_len - batch_len;
-                    // zero padding
-                    *active_tensor = pad_all_sequences(active_tensor, diff, padding_token);
-                } else if batch_len > seq_len {
-                    let diff = batch_len - seq_len;
-                    rqt = pad_single_sequence(&rqt, diff, padding_token);
-                }
-                *active_tensor = add_sequence_to_outside_of_slot(active_tensor, &rqt);
+                *active_tensor = add_sequence_to_outside_of_slot(active_tensor, &request_tensor);
             }
         }
 
@@ -382,87 +299,24 @@ where B: Backend + Unsqueezable,
     ) {
         let sliced = slice_tensor_by_batch_dimension(outputs);
         batch_items.iter().enumerate().for_each(|(idx, item)| {
-                match sliced.get(idx) {
-                    None => {
-                        panic!("Unable to slice index {}", idx);
-                    }
-                    Some(slice) => {
-                        match item.sender().send(slice.clone()) {
-                            Ok(_) => {}
-                            Err(_) => {
-                                // TODO: we should close the slot and let someone else take
-                                eprintln!("Failed to send output to stream; receiver likely dropped");
-                            }
+            match sliced.get(idx) {
+                None => {
+                    panic!("Unable to slice index {}", idx);
+                }
+                Some(slice) => {
+                    match item.sender().send(slice.clone()) {
+                        Ok(_) => {}
+                        Err(_) => {
+                            // TODO: we should close the slot and let someone else take
+                            eprintln!("Failed to send output to stream; receiver likely dropped");
                         }
+                    }
                 }
             }
         });
     }
 
 
-    /// Updates state after processing model outputs.
-    ///
-    /// This method performs several important state management tasks:
-    /// 1. Identifies sequences that have generated a stop token
-    /// 2. Removes completed sequences from the batch
-    /// 3. Updates the active tensor to reflect removed sequences
-    /// 4. Trims the sequence length if needed
-    /// 5. Updates the active sequence count
-    ///
-    /// # Parameters
-    ///
-    /// * `inputs` - The current active tensor
-    /// * `output` - The most recent model output
-    /// * `stop_token` - Token that signals sequence completion
-    /// * `batch_items` - List of batch items tracking sequence state
-    /// * `active_sequence_count` - Shared counter of active sequences
-    async fn update_state_for_output(
-        inputs: &mut Option<B::Unsqueezed>,
-        output: &B,
-        stop_token: &B,
-        batch_items: &mut Vec<BatchItem<B>>,
-        active_sequence_count: Arc<Mutex<usize>>
-    ) {
-        let where_end: HashSet<usize> = where_equals_stop_token(output, stop_token).into_iter().collect();
-
-        let num_sequences_ended = where_end.len();
-        if num_sequences_ended ==  0 {
-            return
-        }
-        let ended = where_end.len();
-        let mut idx = 0;
-        batch_items.retain( |_| {
-            let keep = !where_end.contains(&idx);
-            idx += 1;
-            keep
-        });
-        let mut sorted_ends: Vec<usize> = where_end.into_iter().collect();
-        sorted_ends.sort_by(|a, b| b.cmp(a));
-        sorted_ends.iter().for_each(|&idx| {
-            *inputs = pop_sequence_from_slot(inputs, idx)
-        });
-        let max_sequence_length = BatchItem::max_seq_len_for_batch_items(batch_items);
-        *inputs = trim_sequence(inputs, max_sequence_length);
-        {
-            let mut sequence_count = active_sequence_count.lock().await;
-            *sequence_count -= ended;
-        }
-    }
-
-
-    /// Updates sequence length tracking for all active batch items.
-    ///
-    /// This method increments the sequence length counter for each active
-    /// batch item after a successful generation step.
-    ///
-    /// # Parameters
-    ///
-    /// * `batch_items` - List of batch items to update
-    async fn update_sequence_lengths(batch_items: &mut Vec<BatchItem<B>>) {
-        for batch_item in batch_items.iter_mut() {
-                batch_item.increment_sequence_length(1);
-        }
-    }
 
     /// Extracts pending requests that can be processed in the current batch.
     ///
@@ -533,8 +387,8 @@ where B: Backend + Unsqueezable,
 ///
 /// This implementation ensures that the background task is properly
 /// shut down when the inference engine is dropped.
-impl <B, const S: usize> Drop for AutoregressiveBatchInference<B, S>
-where B: Backend + Unsqueezable,
+impl <B, O, const S: usize> Drop for FeedforwardBatchInference<B, O, S>
+where B: Backend, O: Backend
 {
     fn drop(&mut self) {
         self.shutdown();
@@ -547,26 +401,11 @@ where B: Backend + Unsqueezable,
 /// This implementation ensures that the background task is properly
 /// shut down when the inference engine is dropped.
 #[async_trait]
-impl <B, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, S>
-where B: Backend + Unsqueezable,
+impl <B, O, const S: usize> FeedforwardBatcher<B, O> for FeedforwardBatchInference<B, O, S>
+where B: Backend, O: Backend
 {
-    /// Processes a generation request and returns a stream of results.
-    ///
-    /// This method:
-    /// 1. Creates a channel for receiving generated tokens
-    /// 2. Adds the request to the waiting queue
-    /// 3. Notifies the background task that new work is available
-    /// 4. Returns a stream that will yield the generated tokens
-    ///
-    /// # Parameters
-    ///
-    /// * `item` - The input tensor for which to generate tokens
-    ///
-    /// # Returns
-    ///
-    /// An `ItemStream` that yields generated tokens as they become available
-    async fn run(&self, item: B) -> ItemStream<B> {
-        let (tx, rx) = mpsc::unbounded_channel();
+    async fn run(&self, item: B) -> Item<O> {
+        let (tx, rx) = channel();
         let queue_item = QueueItem::new(
             item,
             tx,
@@ -577,7 +416,7 @@ where B: Backend + Unsqueezable,
         }
         // Notify the worker that new work is available
         self.work_notifier.notify_one();
-        ItemStream::new(rx)
+        Item::new(rx)
     }
 }
 

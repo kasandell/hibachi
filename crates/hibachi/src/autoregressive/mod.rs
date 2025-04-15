@@ -79,6 +79,7 @@
 
 mod batcher;
 mod core_trait;
+mod item_stream;
 
 pub use core_trait::*;
 pub use batcher::AutoregressiveBatchInference;

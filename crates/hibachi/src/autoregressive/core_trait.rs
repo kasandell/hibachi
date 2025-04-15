@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::backend::{Backend, Unsqueezable};
-use crate::communication::ItemStream;
+use super::item_stream::ItemStream;
 
 /// # Autoregressive
 ///
