@@ -27,6 +27,8 @@
 //!  - The `1st` dimension is reserved as the sequence dimension
 //!  - Tensors may fill in other dimensions
 //!
+//! Given that we implement over backends that may panic, as of now, Hibachi reserves the right to panic
+//! on invalid tensor operations.
 //!
 //! ### Backend Traits
 //!
