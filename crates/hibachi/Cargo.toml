@@ -12,6 +12,9 @@ description = "Asynchronous Batched Inference Platform"
 readme = "../../README.md"
 
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 candle = ["dep:candle-core"]
 burn = ["dep:burn"]
