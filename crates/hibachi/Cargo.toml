@@ -3,6 +3,13 @@ name = "hibachi"
 version = "0.1.5"
 edition = "2021"
 resolver = "2"
+license = "MIT"
+repository = "https://www.github.com/kasandell/hibachi"
+authors = [
+    "Kyle Sandell"
+]
+description = "Asynchronous Batched Inference Platform"
+
 
 [features]
 candle = ["dep:candle-core"]
