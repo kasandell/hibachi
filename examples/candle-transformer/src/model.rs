@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use rand::{Rng};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
@@ -11,6 +10,8 @@ use tokio::sync::Mutex;
 use hibachi::autoregressive::Autoregressive;
 
 const MODEL_ID: &str = "HuggingFaceTB/SmolLM2-1.7B";
+
+#[allow(dead_code)]
 const EOS_TOKEN: &str = "<|endoftext|>";
 
 pub struct Model {
@@ -24,13 +25,17 @@ impl Model {
     pub fn new(temperature: Option<f64>, top_k: Option<usize>, top_p: Option<f64>) -> Self  {
         let dtype = DType::F16;
         let device = Device::Cpu;
+
         let api = Api::new().expect("creates api");
         let revision = "main".to_string();
         let api = api.repo(Repo::with_revision(MODEL_ID.to_string(), RepoType::Model, revision));
+
         let tokenizer_filename = api.get("tokenizer.json").expect("finds tokenizer");
         let config_filename = api.get("config.json").expect("Finds config");
+
         let config: LlamaConfig = serde_json::from_slice(&std::fs::read(config_filename).unwrap()).unwrap();
         let config = config.into_config(false);
+
         let filenames = vec![api.get("model.safetensors").unwrap()];
         let cache = model::Cache::new(false, dtype, &config, &device).unwrap();
 
@@ -38,7 +43,7 @@ impl Model {
         let llama = Llama::load(vb, &config).expect("Create llama");
         let tokenizer = Tokenizer::from_file(tokenizer_filename).expect("Create tokenizer");
 
-        let mut logits_processor = {
+        let logits_processor = {
             let temperature = temperature.unwrap_or(1.0);
             let sampling = if temperature <= 0. {
                 Sampling::ArgMax
@@ -55,7 +60,7 @@ impl Model {
 
         Self {
             model: llama,
-            tokenizer: tokenizer,
+            tokenizer,
             logits: Mutex::new(logits_processor),
             cache: Mutex::new(cache)
         }
@@ -90,7 +95,6 @@ fn batchwise_logits(
 ) -> Tensor {
 
     let batch_size = logits.dims()[0];
-    let vocab_size = logits.dims()[1];
 
     // Initialize a vector to hold the sampled tokens for each batch item
     let mut sampled_tokens = Vec::with_capacity(batch_size);
@@ -114,8 +118,8 @@ impl Autoregressive<Tensor> for Model {
     async fn forward(&self, tensor: Tensor) -> Tensor {
         let mut cache = self.cache.lock().await;
         let sq_len = tensor.dims()[1];
-        let logits = self.model.forward(&tensor, sq_len, &mut *cache).unwrap();
+        let logits = self.model.forward(&tensor, sq_len, &mut cache).unwrap();
         let mut logits_processor = self.logits.lock().await;
-        batchwise_logits(&mut *logits_processor, logits)
+        batchwise_logits(&mut logits_processor, logits)
     }
 }

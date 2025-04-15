@@ -5,7 +5,6 @@ use burn::backend::wgpu::{Wgpu, WgpuDevice};
 use burn::tensor::Tensor;
 use hibachi::autoregressive::{
 AutoregressiveBatcher,
-Autoregressive,
 AutoregressiveBatchInference
 };
 use futures::stream::StreamExt;

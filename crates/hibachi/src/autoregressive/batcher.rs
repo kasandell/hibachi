@@ -7,31 +7,87 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use tokio::time::error::Elapsed;
-use crate::communcation::{ItemStream, BatchItem, QueueItem, Pill};
-use crate::backend::{Backend, LowerRankedTensorOps};
+use crate::communication::{ItemStream, BatchItem, QueueItem, Pill};
+use crate::backend::{Backend, Unsqueezable};
 use super::{Autoregressive, AutoregressiveBatcher};
-use crate::tensor::*;
+use crate::tensor::operations::*;
 
+/// # AutoregressiveBatchInference
+///
+/// An implementation of the `AutoregressiveBatcher` trait that provides efficient
+/// batched processing for autoregressive models.
+///
+/// This struct manages an inference pipeline that:
+/// 1. Collects multiple generation requests
+/// 2. Dynamically batches them up to a maximum batch size (`S`)
+/// 3. Processes them through an autoregressive model
+/// 4. Streams results back to each requester
+///
+/// ## Type Parameters
+///
+/// * `B` - The tensor backend type that implements `Backend` and `Unsqueezable`
+/// * `S` - A const generic parameter specifying the maximum batch size
+///
+/// ## Implementation Details
+///
+/// The implementation uses a background task that continuously processes requests
+/// and manages the active tensor state. Key internal mechanisms include:
+///
+/// - A thread-safe queue of waiting requests
+/// - A notification system to efficiently signal when work is available
+/// - Dynamic tensor manipulation to handle variable-length sequences
+/// - Automatic detection and handling of completed sequences
+/// - Resource management to ensure bounded memory usage
 pub struct AutoregressiveBatchInference<B, const S: usize>
-where B: Backend + LowerRankedTensorOps
+where B: Backend + Unsqueezable
 {
+    /// Flag indicating whether the background task should continue running
     running: Arc<AtomicBool>,
+
+    /// Handle to the background task that processes batched requests
     background_task: Option<JoinHandle<()>>,
+
+    /// Thread-safe queue of pending requests waiting to be processed
     waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
+
+    /// Notification mechanism to signal when new work is available
     work_notifier: Arc<Notify>,
+
+    /// Counter tracking the number of currently active sequences in the batch
     active_count: Arc<Mutex<usize>>
 }
 
 impl <B, const S: usize> AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 
 {
-    /// Instantiate a new batched regressive inference engine on top of `model`,
-    /// stopping when we hit stop_token.
-    /// stop token & padding token must be of one dimension higher than they are intended.
-    /// this is bc there's no support for 0 size tensor
-    /// so, for a typical text based autoregressive model, of (batch_size, seq_len),
-    /// we expect stop token and padding token to be of dimension [1], rathar than a 0 rank value
+    /// Creates a new batched autoregressive inference engine using the provided model.
+    ///
+    /// This constructor initializes the batching system and starts the background
+    /// processing task that will handle incoming requests.
+    ///
+    /// # Parameters
+    ///
+    /// * `model` - The autoregressive model implementation that will process batched requests
+    /// * `stop_token` - Token that signals the end of generation for a sequence
+    /// * `padding_token` - Token used to pad sequences to uniform length within a batch
+    ///
+    /// # Tensor Shape Requirements
+    ///
+    /// Both `stop_token` and `padding_token` must be of one dimension higher than intended.
+    /// For example, for a typical text-based autoregressive model with input shape
+    /// `(batch_size, seq_len)`, both tokens should have shape `[1]`, rather than a rank-0 value.
+    /// This is due to limitations in handling zero-sized tensors.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if:
+    /// - `padding_token` has an empty shape (rank 0)
+    /// - The first dimension of `padding_token` is not 1
+    ///
+    /// # Returns
+    ///
+    /// A new `AutoregressiveBatchInference` instance configured with the provided model and tokens
     pub fn new<M>(
         model: M,
         stop_token: &B,
@@ -40,7 +96,7 @@ where B: Backend + LowerRankedTensorOps,
     where M: Autoregressive<B> + Send + Sync + 'static,
     {
         let padding_shape = padding_token.shape();
-        assert!(padding_shape.len() > 0, "padding shape must be of rank 1 or higher");
+        assert!(!padding_shape.is_empty(), "padding shape must be of rank 1 or higher");
         assert_eq!(padding_shape[0], 1, "padding dimension 1 must be rank 1");
 
         let waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>> = Default::default();
@@ -54,15 +110,16 @@ where B: Backend + LowerRankedTensorOps,
         let work_notifier_clone = work_notifier.clone();
         let stop_clone = stop_token.clone();
         let padding_clone = padding_token.clone();
-        let pill = Pill {};
+        let pill = Pill::new();
+
+
         let background_task = Some(tokio::spawn(async move {
-            // by moving this in here, when inference loop panics and this thread dies
+            // By moving this in here, when inference loop panics and this thread dies
             // drop will be called, causing a panic escalation
             #[allow(unused_variables)]
             let panic_escalator = pill;
             Self::run_inference_loop_batch_item(
                 model,
-                //active_tensor,
                 running_clone,
                 stop_clone,
                 padding_clone,
@@ -70,11 +127,10 @@ where B: Backend + LowerRankedTensorOps,
                 waiting_clone.clone(),
                 work_notifier_clone
             ).await;
-            // *active_count_clone.lock().await = 0;
-            // *waiting_clone.lock().await = vec![];
         }));
+
+
         Self {
-            //_marker: PhantomData,
             running,
             background_task,
             waiting_requests,
@@ -83,6 +139,34 @@ where B: Backend + LowerRankedTensorOps,
         }
     }
 
+    /// Runs the main inference loop for processing batched requests.
+    ///
+    /// This is the core internal method that handles:
+    /// 1. Waiting for and collecting new requests
+    /// 2. Building batches of appropriate size
+    /// 3. Running the model on batched inputs
+    /// 4. Dispatching outputs to the respective streams
+    /// 5. Managing the active tensor state and sequence tracking
+    ///
+    /// # Parameters
+    ///
+    /// * `model` - The autoregressive model to use for generation
+    /// * `running` - Atomic flag indicating whether the loop should continue
+    /// * `stop_token` - Token that signals generation completion
+    /// * `padding_token` - Token used for sequence padding
+    /// * `active_count` - Shared counter of active sequences
+    /// * `waiting_requests` - Queue of pending requests
+    /// * `work_notifier` - Notification mechanism for signaling new work
+    ///
+    /// # Implementation Notes
+    ///
+    /// This method maintains an internal state of active sequences and manages
+    /// the dynamic batching process. It handles:
+    /// - Starting new sequences when batch capacity is available
+    /// - Padding sequences to uniform length within a batch
+    /// - Detecting when sequences have completed (by generating stop tokens)
+    /// - Removing completed sequences from the batch
+    /// - Streaming generated tokens back to requesters
     async fn run_inference_loop_batch_item<M>(
         model: M,
         running: Arc<AtomicBool>,
@@ -138,10 +222,31 @@ where B: Backend + LowerRankedTensorOps,
         }
     }
 
+    /// Returns the current number of active sequences being processed.
+    ///
+    /// This can be used to monitor the load on the batching system and
+    /// to implement backpressure mechanisms if needed.
+    ///
+    /// # Returns
+    ///
+    /// The number of sequences currently being processed in the batch
     pub async fn active_count(&self) -> usize {
-        self.active_count.clone().lock().await.clone()
+        *self.active_count.clone().lock().await
     }
 
+    /// Waits for a notification with a timeout.
+    ///
+    /// This helper method attempts to wait for a notification from the work notifier,
+    /// but will time out after a specified duration to allow for periodic checking
+    /// of other conditions (like the running flag).
+    ///
+    /// # Parameters
+    ///
+    /// * `notifier` - The notify instance to wait on
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if a notification was received, or `Err(Elapsed)` if the timeout occurred
     #[inline]
     async fn timeout_await_notifier(notifier: &Notify) -> Result<(), Elapsed>{
         tokio::time::timeout(
@@ -150,6 +255,20 @@ where B: Backend + LowerRankedTensorOps,
         ).await
     }
 
+    /// Determines whether there is work to be processed.
+    ///
+    /// This helper method checks if there are either:
+    /// 1. Active sequences currently being processed, or
+    /// 2. Waiting requests that could be started
+    ///
+    /// # Parameters
+    ///
+    /// * `active_count` - Shared counter of active sequences
+    /// * `waiting_requests` - Queue of pending requests
+    ///
+    /// # Returns
+    ///
+    /// `true` if there is work to process, `false` otherwise
     #[inline]
     async fn should_process(
         active_count: Arc<Mutex<usize>>,
@@ -166,6 +285,17 @@ where B: Backend + LowerRankedTensorOps,
         }
     }
 
+    /// Adds new requests to the active batch.
+    ///
+    /// This helper method processes a list of new queue items, creates batch items
+    /// for tracking them, and adds their input tensors to the active tensor.
+    ///
+    /// # Parameters
+    ///
+    /// * `active_tensor` - The current active tensor containing all batched sequences
+    /// * `new_queue_items` - New requests to be added to the batch
+    /// * `batch_items` - List of batch items for tracking sequence state
+    /// * `padding_token` - Token used for padding sequences to uniform length
     async fn push_new_requests(
         active_tensor: &mut Option<B::Unsqueezed>,
         new_queue_items: Vec<QueueItem<B, B>>,
@@ -183,7 +313,23 @@ where B: Backend + LowerRankedTensorOps,
     }
 
 
-    // request tensor comes in as (seq_len, ...)
+    /// Adds a new sequence to the active tensor.
+    ///
+    /// This helper method handles the tensor manipulation required to add a new
+    /// sequence to the active batch, including padding to ensure uniform sequence length.
+    ///
+    /// # Parameters
+    ///
+    /// * `active_tensor` - The current active tensor containing all batched sequences
+    /// * `request_tensor` - The new sequence tensor to add to the batch
+    /// * `padding_token` - Token used for padding sequences to uniform length
+    ///
+    /// # Tensor Shape Handling
+    ///
+    /// This method automatically handles cases where:
+    /// - The active tensor is empty (initializes with the new sequence)
+    /// - The new sequence is longer than existing ones (pads existing sequences)
+    /// - The new sequence is shorter than existing ones (pads the new sequence)
     async fn add_to_active_tensor(
         active_tensor: &mut Option<B::Unsqueezed>,
         request_tensor: &B,
@@ -220,6 +366,15 @@ where B: Backend + LowerRankedTensorOps,
 
     }
 
+    /// Sends model outputs to their respective result streams.
+    ///
+    /// After a forward pass of the model, this method distributes the generated
+    /// tokens to the appropriate requesters through their dedicated channels.
+    ///
+    /// # Parameters
+    ///
+    /// * `outputs` - Tensor containing the model's output for all sequences in the batch
+    /// * `batch_items` - List of batch items that track sequence state and output channels
     async fn send_outputs_to_stream(
         outputs: B,
         batch_items: &Vec<BatchItem<B>>
@@ -244,6 +399,22 @@ where B: Backend + LowerRankedTensorOps,
     }
 
 
+    /// Updates state after processing model outputs.
+    ///
+    /// This method performs several important state management tasks:
+    /// 1. Identifies sequences that have generated a stop token
+    /// 2. Removes completed sequences from the batch
+    /// 3. Updates the active tensor to reflect removed sequences
+    /// 4. Trims the sequence length if needed
+    /// 5. Updates the active sequence count
+    ///
+    /// # Parameters
+    ///
+    /// * `inputs` - The current active tensor
+    /// * `output` - The most recent model output
+    /// * `stop_token` - Token that signals sequence completion
+    /// * `batch_items` - List of batch items tracking sequence state
+    /// * `active_sequence_count` - Shared counter of active sequences
     async fn update_state_for_output(
         inputs: &mut Option<B::Unsqueezed>,
         output: &B,
@@ -278,12 +449,35 @@ where B: Backend + LowerRankedTensorOps,
     }
 
 
+    /// Updates sequence length tracking for all active batch items.
+    ///
+    /// This method increments the sequence length counter for each active
+    /// batch item after a successful generation step.
+    ///
+    /// # Parameters
+    ///
+    /// * `batch_items` - List of batch items to update
     async fn update_sequence_lengths(batch_items: &mut Vec<BatchItem<B>>) {
         for batch_item in batch_items.iter_mut() {
                 batch_item.increment_sequence_length(1);
         }
     }
 
+    /// Extracts pending requests that can be processed in the current batch.
+    ///
+    /// This method determines how many new requests can be added to the batch
+    /// based on the current batch occupancy and maximum size, then moves those
+    /// requests from the waiting queue to the active state.
+    ///
+    /// # Parameters
+    ///
+    /// * `batch_size` - Maximum number of sequences that can be processed in a batch
+    /// * `waiting_requests` - Queue of pending requests
+    /// * `active_count` - Counter of currently active sequences
+    ///
+    /// # Returns
+    ///
+    /// A vector of queue items that should be added to the active batch
     async fn drain_possible_requests(
         batch_size: usize,
         waiting_requests: Arc<Mutex<Vec<QueueItem<B, B>>>>,
@@ -307,6 +501,17 @@ where B: Backend + LowerRankedTensorOps,
         vec![]
     }
 
+    /// Initiates a graceful shutdown of the batch inference engine.
+    ///
+    /// This method signals the background task to stop processing and
+    /// awaits its completion.
+    ///
+    /// # Implementation Notes
+    ///
+    /// The shutdown process:
+    /// 1. Sets the running flag to false
+    /// 2. Notifies the worker to check the flag
+    /// 3. Spawns a task to await the background task's completion
     fn shutdown(&mut self) {
         // Signal the background task to stop
         self.running.store(false, Ordering::SeqCst);
@@ -323,8 +528,12 @@ where B: Backend + LowerRankedTensorOps,
 }
 
 
+/// Implements resource cleanup for the inference engine.
+///
+/// This implementation ensures that the background task is properly
+/// shut down when the inference engine is dropped.
 impl <B, const S: usize> Drop for AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 {
     fn drop(&mut self) {
         self.shutdown();
@@ -332,10 +541,29 @@ where B: Backend + LowerRankedTensorOps,
 }
 
 
+/// Implements resource cleanup for the inference engine.
+///
+/// This implementation ensures that the background task is properly
+/// shut down when the inference engine is dropped.
 #[async_trait]
 impl <B, const S: usize> AutoregressiveBatcher<B, B> for AutoregressiveBatchInference<B, S>
-where B: Backend + LowerRankedTensorOps,
+where B: Backend + Unsqueezable,
 {
+    /// Processes a generation request and returns a stream of results.
+    ///
+    /// This method:
+    /// 1. Creates a channel for receiving generated tokens
+    /// 2. Adds the request to the waiting queue
+    /// 3. Notifies the background task that new work is available
+    /// 4. Returns a stream that will yield the generated tokens
+    ///
+    /// # Parameters
+    ///
+    /// * `item` - The input tensor for which to generate tokens
+    ///
+    /// # Returns
+    ///
+    /// An `ItemStream` that yields generated tokens as they become available
     async fn run(&self, item: B) -> ItemStream<B> {
         let (tx, rx) = mpsc::unbounded_channel();
         let queue_item = QueueItem::new(
@@ -351,3 +579,4 @@ where B: Backend + LowerRankedTensorOps,
         ItemStream::new(rx)
     }
 }
+
