@@ -6,6 +6,8 @@
 [![Documentation](https://docs.rs/tensor_batch/badge.svg)](https://docs.rs/hibachi)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![Hibachi](hibachi.png)
+
 **Hibachi** is a Rust library for efficient batched inference with autoregressive (and soon feedforward) models. It dynamically groups multiple generation requests into batches, manages tensor operations, and streams results back to clients as they become available.
 
 ## Key Features
