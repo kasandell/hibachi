@@ -6,7 +6,7 @@ use super::queue_item::QueueItem;
 use async_trait::async_trait;
 use oneshot::channel;
 use crate::communication::Pill;
-use crate::core::batch::batching_loop;
+use crate::core::batch::batch_inference_loop;
 use crate::core::worker::BatchWorkerHandle;
 use crate::feedforward::core_trait::{Feedforward, FeedforwardBatcher};
 use crate::feedforward::handler::FeedForwardHandler;
@@ -42,7 +42,7 @@ where B: Backend + Unsqueezable, O: Backend
                             model
                         };
 
-                        batching_loop::<FeedForwardHandler<M, B, O>, S>(
+                        batch_inference_loop::<FeedForwardHandler<M, B, O>, S>(
                             &inference_handler,
                             running,
                             work_notifier,

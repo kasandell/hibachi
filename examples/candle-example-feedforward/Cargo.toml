@@ -1,0 +1,14 @@
+[package]
+name = "candle-example-feedforward"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+
+[dependencies]
+candle-core = {workspace = true}
+hibachi = {version = "0.1.0", path = "../../crates/hibachi", features = ["candle", "feedforward"]}
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+rand = "0.8.5"

@@ -80,6 +80,8 @@
 mod batcher;
 mod core_trait;
 mod item_stream;
+mod handler;
+mod queue_item;
 
 pub use core_trait::*;
 pub use batcher::AutoregressiveBatchInference;

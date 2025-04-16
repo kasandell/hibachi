@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::error::Elapsed;
-use super::core_trait::BatchHandler;
+use super::handler::BatchHandler;
 
-pub async fn batching_loop<BH: BatchHandler, const S: usize>(
+pub async fn batch_inference_loop<BH: BatchHandler, const S: usize>(
     handler: &BH,
     running: Arc<AtomicBool>,
     notifier: Arc<Notify>,
@@ -34,7 +34,6 @@ pub async fn batching_loop<BH: BatchHandler, const S: usize>(
         let items = drain_possible_requests(
             S, waiting_requests.clone(), active_count.clone(),
         ).await;
-
         if !items.is_empty() || {
             let active = active_count.lock().await;
             *active > 0
@@ -46,7 +45,7 @@ pub async fn batching_loop<BH: BatchHandler, const S: usize>(
             match input {
                 None => {}
                 Some(input) => {
-                    let output = handler.infer(&input).await;
+                    let output = handler.forward(&input).await;
                     handler.handle_outputs(&mut active_requests, &mut tensor_lock, output, active_count.clone()).await;
                 }
             }
@@ -55,6 +54,11 @@ pub async fn batching_loop<BH: BatchHandler, const S: usize>(
 }
 
 
+///
+/// Determine whether we need to run a pass of the inference loop
+/// Conditions being: there are active items in the batch,
+/// or there are active waiting items in the request queue
+/// 
 #[inline]
 async fn should_process<T>(
     active_count: Arc<Mutex<usize>>,
@@ -70,6 +74,9 @@ async fn should_process<T>(
     }
 }
 
+
+///
+/// Await a 100ms timeout, or notification. Allows our loop to stay idle
 #[inline]
 async fn timeout_await_notifier(notifier: &Notify) -> Result<(), Elapsed> {
     tokio::time::timeout(
@@ -78,6 +85,9 @@ async fn timeout_await_notifier(notifier: &Notify) -> Result<(), Elapsed> {
     ).await
 }
 
+///
+/// Drain requests from the waiting requests, up to a maximum of `batch_size - active_count`.
+/// Ensures that we drain requests but maintain proper batch sizing
 async fn drain_possible_requests<T>(
     batch_size: usize,
     waiting_requests: Arc<Mutex<Vec<T>>>,
@@ -86,7 +96,6 @@ async fn drain_possible_requests<T>(
     // before we even get to the requests lock
     let mut requests = waiting_requests.lock().await;
     let mut active = active_count.lock().await;
-    // Calculate how many items we can process
     let available_slots = batch_size.saturating_sub(*active);
 
     if available_slots > 0 && !requests.is_empty() {

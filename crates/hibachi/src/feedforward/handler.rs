@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use crate::backend::Backend;
 use tokio::sync::Mutex;
 use crate::backend::Unsqueezable;
-use crate::core::core_trait::BatchHandler;
+use crate::core::handler::BatchHandler;
 use crate::feedforward::core_trait::Feedforward;
 use crate::feedforward::queue_item::QueueItem;
 use crate::tensor::operations::{
@@ -39,7 +39,7 @@ where B: Backend + Unsqueezable, O: Backend,
         }
     }
 
-    async fn infer(&self, model_input: &Self::ModelInput) -> Self::ModelOutput {
+    async fn forward(&self, model_input: &Self::ModelInput) -> Self::ModelOutput {
         self.model.forward(model_input.clone()).await
     }
 

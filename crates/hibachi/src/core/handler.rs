@@ -12,7 +12,7 @@ pub trait BatchHandler {
     async fn make_batch_input(&self, model_input: &mut Option<Self::ModelInput>, requests: &[Self::Request]);
 
     /// Run the model forward pass.
-    async fn infer(&self, model_input: &Self::ModelInput) -> Self::ModelOutput;
+    async fn forward(&self, model_input: &Self::ModelInput) -> Self::ModelOutput;
 
     /// Stream or send outputs, return requests still active.
     async fn handle_outputs(

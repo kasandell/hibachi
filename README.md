@@ -127,8 +127,8 @@ use tensor_batch::autoregressive::Autoregressive;
 use async_trait::async_trait;
 
 #[async_trait]
-impl Autoregressive<MyTensor> for MyTransformerModel {
-    async fn forward(&self, tensor: <MyTensor as Unsqueezable>::Unsqueezed) -> MyTensor {
+impl Autoregressive<Tensor> for MyTransformerModel {
+    async fn forward(&self, tensor: <Tensor as Unsqueezable>::Unsqueezed) -> Tensor {
         // Your transformer forward logic here
         // Input shape: (batch, seq, ...)
         // Output shape: (batch, ...)
@@ -143,3 +143,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## TODOs
+- [ ] High throughput batching (provide some way to split model by layers / blocks)
+- 
