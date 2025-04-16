@@ -3,9 +3,9 @@ use crate::backend::{Backend, Unsqueezable};
 use super::item::Item;
 
 #[async_trait]
-pub trait Feedforward<B, O> where B: Backend, O: Backend
+pub trait Feedforward<B, O> where B: Backend + Unsqueezable, O: Backend
 {
-    async fn forward(&self, tensor: B) -> O;
+    async fn forward(&self, tensor: B::Unsqueezed) -> O;
 }
 
 #[async_trait]

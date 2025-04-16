@@ -1,3 +1,3 @@
-mod batcher;
-
-pub use batcher::BatchInference;
+pub mod worker;
+pub mod batch;
+pub mod core_trait;
