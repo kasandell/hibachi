@@ -14,7 +14,7 @@
 //!
 //! Users of this crate can work with tensors in a backend-agnostic way by:
 //!
-//! 1. Importing the traits ([Backend], [Unsqueezable])
+//! 1. Importing the traits ([`Backend`], [`Unsqueezable`])
 //! 2. Writing code against these trait interfaces
 //! 3. Enabling the appropriate feature flag for their desired backend
 //!
@@ -26,7 +26,7 @@ mod core_trait;
 /// Candle tensor backend implementation.
 ///
 /// This module is only available when the `candle` feature flag is enabled.
-/// It provides an implementation of the `Backend` and `Unsqueezable` traits
+/// It provides an implementation of the [`Backend`] and [`Unsqueezable`] traits
 /// for Candle's `Tensor` type.
 ///
 /// The implementation wraps candle-core's tensor operations to match the
@@ -37,12 +37,20 @@ pub mod candle;
 /// Burn tensor backend implementation.
 ///
 /// This module is only available when the `burn` feature flag is enabled.
-/// It provides an implementation of the `Backend` and `Unsqueezable` traits
+/// It provides an implementation of the [`Backend`] and [`Unsqueezable`] traits
 /// for Burn's tensor types.
 ///
 /// Burn uses a different approach to tensors than some other libraries,
 /// with stronger compile-time guarantees through its type system.
 pub mod burn;
 
+
 // Re-export the core traits for convenient imports
 pub use core_trait::*;
+
+
+#[cfg(test)]
+/// Mock tensor implementation.
+///
+/// Operates on simple vector tensors
+pub(crate) mod mock_tensor;

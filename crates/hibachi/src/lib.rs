@@ -61,6 +61,7 @@
 
 mod communication;
 mod tensor;
+mod core;
 
 pub mod backend;
 
@@ -69,4 +70,8 @@ pub use tensor::constant;
 
 #[cfg(feature = "autoregressive")]
 pub mod autoregressive;
+
+#[cfg(feature = "feedforward")]
+pub mod feedforward;
+
 

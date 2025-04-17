@@ -19,7 +19,7 @@ impl Autoregressive<Tensor> for Model {
         // Extract the dimensions we need
         let batch_size = tensor.dims()[0];
         let mut rng = thread_rng();
-        let val = rng.gen_range(0..=batch_size);
+        let val = rng.gen_range(0..=1);
         let mut zeros = Tensor::zeros(&[batch_size], tensor.dtype(), tensor.device()).unwrap();
         let ones = Tensor::ones(&[1], tensor.dtype(), tensor.device()).unwrap();
         for _ in 0..val {

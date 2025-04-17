@@ -2,8 +2,8 @@
 
 > Efficient batched inference tensor models
 
-[![Crates.io](https://img.shields.io/crates/v/tensor_batch.svg)](https://crates.io/crates/hibachi)
-[![Documentation](https://docs.rs/tensor_batch/badge.svg)](https://docs.rs/hibachi)
+[![Crates.io](https://img.shields.io/crates/v/hibachi.svg)](https://crates.io/crates/hibachi)
+[![Documentation](https://docs.rs/hibachi/badge.svg)](https://docs.rs/hibachi)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![Hibachi](hibachi.png)
@@ -27,6 +27,11 @@ Add this to your `Cargo.toml`:
 hibachi = {version = "0.1.0", features = ["candle", "autoregressive"] }# burn flag available as well
 tokio = { version = "1", features = ["full"] }
 ```
+
+
+## Early Stage Notice
+This package is still in its early stages. Until `1.x` releases, hibachi reserves the right to break interfaces. Though we will try our best not to,
+this packaage is in its infancy, and may need to be adjusted as it grows. 
 
 ## Quick Start
 
@@ -127,8 +132,8 @@ use tensor_batch::autoregressive::Autoregressive;
 use async_trait::async_trait;
 
 #[async_trait]
-impl Autoregressive<MyTensor> for MyTransformerModel {
-    async fn forward(&self, tensor: <MyTensor as Unsqueezable>::Unsqueezed) -> MyTensor {
+impl Autoregressive<Tensor> for MyTransformerModel {
+    async fn forward(&self, tensor: <Tensor as Unsqueezable>::Unsqueezed) -> Tensor {
         // Your transformer forward logic here
         // Input shape: (batch, seq, ...)
         // Output shape: (batch, ...)
@@ -143,3 +148,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## TODOs
+- [ ] High throughput batching (provide some way to split model by layers / blocks)
+- 

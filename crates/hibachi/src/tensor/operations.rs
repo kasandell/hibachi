@@ -278,7 +278,7 @@ where B: Backend
 ///
 /// # Implementation Notes
 ///
-/// The function uses the `vectorize_dim` operation provided by the `Backend` trait
+/// The function uses the `vectorize_dim` operation provided by the [`Backend`] trait
 /// to split the tensor along the batch dimension (dimension 0).
 ///
 /// This is typically used to distribute model outputs to the corresponding result streams.

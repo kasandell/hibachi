@@ -1,4 +1,4 @@
-//! # Autoregressive Batch
+//! # Autoregressive Batching
 //!
 //! A module for efficient batched processing of autoregressive model inference.
 //!
@@ -26,7 +26,7 @@
 //!
 //! ## Example Usage
 //!
-//! ```no_run
+//! ```ignore
 //! use hibachi::autoregressive::{Autoregressive, AutoregressiveBatcher, AutoregressiveBatchInference};
 //! use candle_core::{DType, Device, Tensor};
 //! use futures::StreamExt;
@@ -79,6 +79,9 @@
 
 mod batcher;
 mod core_trait;
+mod item_stream;
+mod handler;
+mod queue_item;
 
 pub use core_trait::*;
 pub use batcher::AutoregressiveBatchInference;

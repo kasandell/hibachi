@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::backend::{Backend, Unsqueezable};
-use crate::communication::ItemStream;
+use super::item_stream::ItemStream;
 
 /// # Autoregressive
 ///
@@ -28,7 +28,7 @@ use crate::communication::ItemStream;
 /// - The model should return logits or representations for the next token only
 /// - The batching engine will automatically append generated tokens to the input
 ///   for subsequent generation steps
-/// - The implementation should be compatible with the `Backend` and `Unsqueezable` constraints
+/// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
 ///
 /// ## Usage Context
 ///
