@@ -40,11 +40,22 @@
 //!
 //! The `Autoregressive` trait defines the interface for models that generate
 //! outputs sequentially, while the `AutoregressiveBatcher` trait encapsulates
-//! the logic for efficiently batching multiple generation requests.
+//! the logic for efficiently batching multiple generation requests. We provide a
+//! `AutoregressiveBatchInference` which implements the `AutoregressiveBatcher`
+//! trait out of the box.
+//!
+//! ### Feedforward Processing
+//!
+//!  The `Feedforward` trait defines the interface for models that generate
+//!  outputs in a single pass, while the `FeedforwardBatcher` trait encapsulates
+//!  the logic for efficiently batching multiple generation requests. We provide a
+//! `FeedforwardBatchInference` which implements the `FeedforwardBatcher`
+//! trait out of the box.
 //!
 //! ## Features
 //!
 //! - **autoregressive** - Enables autoregressive model batching functionality
+//! - **feedforward** - Enables feedforward model batching functionality
 //! - **candle** - Enables candle backend
 //! - **burn** - Enables burn backend
 //!

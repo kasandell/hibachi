@@ -12,7 +12,7 @@ use super::{Autoregressive, AutoregressiveBatcher};
 
 /// High-performance batch inference engine for autoregressive models.
 ///
-/// `AutoregressiveBatchInference` processes multiple generation requests concurrently,
+/// [`AutoregressiveBatchInference`] processes multiple generation requests concurrently,
 /// batching them together for efficient processing on accelerators while maintaining
 /// the autoregressive generation pattern for each individual request.
 ///
@@ -21,7 +21,7 @@ use super::{Autoregressive, AutoregressiveBatcher};
 ///
 /// # Type Parameters
 ///
-/// * `B` - The tensor backend type, which must implement both `Backend` and `Unsqueezable`
+/// * `B` - The tensor backend type, which must implement both [`Backend`] and [`Unsqueezable`]
 /// * `S` - A const generic parameter that defines the maximum batch size
 ///
 /// # Example
