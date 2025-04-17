@@ -83,11 +83,13 @@ impl BatchWorkerHandle {
         self.notifier.notify_one();
     }
 
+    #[allow(dead_code)]
     /// Returns a clone of the atomic boolean that indicates whether the task should continue running.
     pub fn running(&self) -> Arc<AtomicBool> {
         self.running.clone()
     }
 
+    #[allow(dead_code)]
     /// Returns a clone of the notifier that can be used to wake up the background task.
     pub fn notifier(&self) -> Arc<Notify> {
         self.notifier.clone()
