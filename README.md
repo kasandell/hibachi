@@ -8,7 +8,7 @@
 
 ![Hibachi](hibachi.png)
 
-**Hibachi** is a Rust library for efficient batched inference with autoregressive (and soon feedforward) models. It dynamically groups multiple generation requests into batches, manages tensor operations, and streams results back to clients as they become available.
+**Hibachi** is a Rust library for efficient batched inference with autoregressive and feedforward models. It dynamically groups multiple generation requests into batches, manages tensor operations, and streams results back to clients as they become available.
 
 ## Key Features
 
@@ -24,7 +24,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-hibachi = {version = "0.1.0", features = ["candle", "autoregressive"] }# burn flag available as well
+hibachi = {version = "0.1.0", features = ["candle", "autoregressive"] }# burn, feedforward flags available as well
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -93,12 +93,16 @@ Tensor Batch consists of several core components:
     - Interface for models that predict the next token based on previous tokens
     - Supports variable batch and sequence dimensions
 
-3. **Batching Engine**
+3. **Feedforward Models**
+   - Interface for models that predict outputs in one shot
+   - Supports variable batch dimensions
+
+4. **Batching Engine**
     - Dynamically manages multiple generation requests
     - Handles tensor padding, concatenation, and state management
     - Streams generated tokens back to clients
 
-4. **Communication Layer**
+5. **Communication Layer**
     - Asynchronous channels for efficient token streaming
     - Proper error handling and resource cleanup
 
@@ -109,7 +113,7 @@ Tensor Batch consists of several core components:
 To use with a custom tensor library, implement the `Backend` and `Unsqueezable` traits:
 
 ```rust
-use tensor_batch::backend::{Backend, Unsqueezable};
+use hibachi::backend::{Backend, Unsqueezable};
 
 impl Backend for MyCustomTensor {
     fn shape(&self) -> Vec<usize> { /* ... */ }
@@ -128,7 +132,7 @@ impl Unsqueezable for MyCustomTensor {
 Implement the `Autoregressive` trait for your model:
 
 ```rust
-use tensor_batch::autoregressive::Autoregressive;
+use hibachi::autoregressive::Autoregressive;
 use async_trait::async_trait;
 
 #[async_trait]
@@ -136,6 +140,24 @@ impl Autoregressive<Tensor> for MyTransformerModel {
     async fn forward(&self, tensor: <Tensor as Unsqueezable>::Unsqueezed) -> Tensor {
         // Your transformer forward logic here
         // Input shape: (batch, seq, ...)
+        // Output shape: (batch, ...)
+    }
+}
+```
+
+### Custom Feedforward Models
+
+Implement the `Autoregressive` trait for your model:
+
+```rust
+use hibachi::autoregressive::Autoregressive;
+use async_trait::async_trait;
+
+#[async_trait]
+impl Feedforward<Tensor, Tensor> for MyTransformerModel {
+    async fn forward(&self, tensor: Tensor) -> Tensor {
+        // Your feedforward forward logic here
+        // Input shape: (batch,  ...)
         // Output shape: (batch, ...)
     }
 }
