@@ -9,7 +9,7 @@ resolver = "2"
 edition = "2024"
 license = "MIT"
 readme = "README.md"
-version = "0.1.6"
+version = "0.1.7"
 repository = "https://www.github.com/kasandell/hibachi"
 authors = [
     "Kyle Sandell"
