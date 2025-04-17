@@ -45,8 +45,8 @@ use candle_core::{Tensor, Device, DType};
 struct MyModel { /* ... */ }
 
 #[async_trait]
-impl Autoregressive<MyTensor> for MyModel {
-    async fn forward(&self, tensor: <MyTensor as Unsqueezable>::Unsqueezed) -> MyTensor {
+impl Autoregressive<Tensor> for MyModel {
+    async fn forward(&self, tensor: Tensor) -> Tensor {
         // Implement your model's forward pass
     }
 }
