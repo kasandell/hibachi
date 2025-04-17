@@ -1,8 +1,18 @@
 [package]
 name = "hibachi"
-version = "0.1.5"
-edition = "2021"
-resolver = "2"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+description.workspace = true
+publish = true
+
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 candle = ["dep:candle-core"]
@@ -22,3 +32,17 @@ uuid = { version = "1.16.0", features = ["v4"] }
 tokio = { workspace = true, features = ["sync", "time", "rt", "test-util", "macros"] }
 burn = { workspace = true, features = ["ndarray"]}
 candle-core = { workspace = true }
+
+
+[[example]]
+name = "burn"
+path = "../../examples/burn-wgpu-backend"
+
+[[example]]
+name = "candle"
+path = "../../examples/candle-example"
+
+[[example]]
+name = "candle transformer"
+path = "../../examples/candle-transformer"
+

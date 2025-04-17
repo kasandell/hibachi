@@ -5,12 +5,17 @@ members = [
 ]
 resolver = "2"
 
-
 [workspace.package]
 edition = "2024"
 license = "MIT"
 readme = "README.md"
-version = "0.1.0"
+version = "0.1.7"
+repository = "https://www.github.com/kasandell/hibachi"
+authors = [
+    "Kyle Sandell"
+]
+description = "Asynchronous Batched Inference Platform"
+
 
 
 [workspace.dependencies]
@@ -19,3 +24,5 @@ burn = { version = "0.16.1" }
 async-trait = { version = "0.1.88" }
 futures = {version = "0.3.31" }
 tokio = { version = "1.44.1"}
+
+

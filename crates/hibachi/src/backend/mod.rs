@@ -22,6 +22,7 @@
 
 mod core_trait;
 
+#[cfg_attr(docsrs, doc(cfg(feature = "candle")))]
 #[cfg(feature = "candle")]
 /// Candle tensor backend implementation.
 ///
@@ -33,6 +34,7 @@ mod core_trait;
 /// expected behavior of our tensor backend abstraction.
 pub mod candle;
 
+#[cfg_attr(docsrs, doc(cfg(feature = "burn")))]
 #[cfg(feature = "burn")]
 /// Burn tensor backend implementation.
 ///
