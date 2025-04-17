@@ -1,15 +1,13 @@
 [package]
 name = "hibachi"
-version = "0.1.5"
-edition = "2021"
-resolver = "2"
-license = "MIT"
-repository = "https://www.github.com/kasandell/hibachi"
-authors = [
-    "Kyle Sandell"
-]
-description = "Asynchronous Batched Inference Platform"
-readme = "../../README.md"
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+description.workspace = true
+publish = true
 
 
 [package.metadata.docs.rs]
