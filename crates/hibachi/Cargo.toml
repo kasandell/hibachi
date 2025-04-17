@@ -13,7 +13,7 @@ feedforward = []
 [dependencies]
 candle-core = { workspace = true, optional = true }
 burn = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["sync", "time", "rt"] }
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
 uuid = { version = "1.16.0", features = ["v4"] }
