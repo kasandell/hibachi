@@ -74,6 +74,7 @@ pub use tensor::constant;
 #[cfg(feature = "autoregressive")]
 pub mod autoregressive;
 
+#[cfg_attr(docsrs, doc(cfg(feature = "feedforward")))]
 #[cfg(feature = "feedforward")]
 pub mod feedforward;
 
