@@ -2,8 +2,8 @@
 
 > Efficient batched inference tensor models
 
-[![Crates.io](https://img.shields.io/crates/v/tensor_batch.svg)](https://crates.io/crates/hibachi)
-[![Documentation](https://docs.rs/tensor_batch/badge.svg)](https://docs.rs/hibachi)
+[![Crates.io](https://img.shields.io/crates/v/hibachi.svg)](https://crates.io/crates/hibachi)
+[![Documentation](https://docs.rs/hibachi/badge.svg)](https://docs.rs/hibachi)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ![Hibachi](hibachi.png)
@@ -27,6 +27,11 @@ Add this to your `Cargo.toml`:
 hibachi = {version = "0.1.0", features = ["candle", "autoregressive"] }# burn flag available as well
 tokio = { version = "1", features = ["full"] }
 ```
+
+
+## Early Stage Notice
+This package is still in its early stages. Until `1.x` releases, hibachi reserves the right to break interfaces. Though we will try our best not to,
+this packaage is in its infancy, and may need to be adjusted as it grows. 
 
 ## Quick Start
 

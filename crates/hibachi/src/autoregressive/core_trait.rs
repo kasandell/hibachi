@@ -28,7 +28,7 @@ use super::item_stream::ItemStream;
 /// - The model should return logits or representations for the next token only
 /// - The batching engine will automatically append generated tokens to the input
 ///   for subsequent generation steps
-/// - The implementation should be compatible with the `Backend` and `Unsqueezable` constraints
+/// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
 ///
 /// ## Usage Context
 ///
