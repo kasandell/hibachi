@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use async_trait::async_trait;
-use tokio::sync::{mpsc, Mutex, Notify};
+use tokio::sync::{mpsc, Mutex};
 use crate::autoregressive::handler::AutoregressiveHandler;
 use crate::autoregressive::queue_item::QueueItem;
 use super::item_stream::ItemStream;
@@ -115,7 +115,6 @@ where
 
         // Create communication primitives
         let pill = Pill::new();
-        let work_notifier = Arc::new(Notify::new());
 
         // Create worker handle with background task
         let worker_handle = BatchWorkerHandle::new({
@@ -123,8 +122,9 @@ where
             let padding_token_clone = padding_token.clone();
             let stop_token_clone = stop_token.clone();
 
-            move |running, notifier| {
+            move |running, work_notifier| {
                 tokio::spawn(async move {
+                    #[allow(unused_variables)]
                     let moved_pill = pill;
                     // Create the inference handler with cloned tokens
                     let inference_handler = AutoregressiveHandler {

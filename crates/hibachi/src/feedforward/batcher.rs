@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tokio::sync::{oneshot, Mutex, Notify};
+use tokio::sync::{oneshot, Mutex};
 use crate::backend::{Backend, Unsqueezable};
 use super::queue_item::QueueItem;
 use async_trait::async_trait;
@@ -89,10 +89,10 @@ where B: Backend + Unsqueezable, O: Backend
         // Create worker handle that manages the background task
         let worker_handle = BatchWorkerHandle::new( {
             let waiting_requests = waiting_requests.clone();
-            let work_notifier = Arc::new(Notify::new());
 
             move |running, notifier| {
                 tokio::spawn(async move {
+                    #[allow(unused_variables)]
                     let moved_pill = pill;
                     let inference_handler = FeedForwardHandler{
                         _marker: PhantomData,
@@ -102,7 +102,7 @@ where B: Backend + Unsqueezable, O: Backend
                     batch_inference_loop::<FeedForwardHandler<M, B, O>, S>(
                         &inference_handler,
                         running,
-                        work_notifier,
+                        notifier,
                         waiting_requests,
                     )
                         .await;

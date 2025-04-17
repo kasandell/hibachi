@@ -3,13 +3,11 @@ mod model;
 use std::sync::Arc;
 use candle_core::{Tensor, Device, DType};
 use hibachi::feedforward::{FeedforwardBatchInference, FeedforwardBatcher};
-use futures::stream::StreamExt;
 use crate::model::Model;
 
 #[tokio::main]
 async fn main() {
     let model = Model::new();
-    let device = Device::Cpu;
 
     let bi = Arc::new(FeedforwardBatchInference::<Tensor, Tensor, 10>::new(
         model,
@@ -25,8 +23,7 @@ async fn main() {
                                          DType::U8,
                                          &device,
                 ).expect("creates start token");
-                let mut it = bic.clone().run(toks).await;
-                let mut count = 0;
+                let it = bic.clone().run(toks).await;
                 let tensor = it.await.unwrap();
                 println!("Index {} shape {:?}", e, tensor.shape());
             }.await
