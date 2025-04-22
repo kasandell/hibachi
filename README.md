@@ -173,4 +173,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## TODOs
 - [ ] High throughput batching (provide some way to split model by layers / blocks)
-- 
+- [ ] Runnable examples in docs
+- [ ] Integrate with hf-transformers to provide OOB support for common models
+- [ ] Add example being used in actix web server
+- [ ] Add first class support for KV Caching?, other performance boosts
+- [ ] Review performance of burn tensors
+- [ ] Benchmark
