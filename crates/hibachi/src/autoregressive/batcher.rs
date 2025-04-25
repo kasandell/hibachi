@@ -23,39 +23,7 @@ use super::{Autoregressive, AutoregressiveBatcher};
 ///
 /// * `B` - The tensor backend type, which must implement both [`Backend`] and [`Unsqueezable`]
 /// * `S` - A const generic parameter that defines the maximum batch size
-///
-/// # Example
-///
-/// ```ignore
-/// use hibachi::{
-///     AutoregressiveBatchInference,
-///     Autoregressive,
-///     Backend,
-///     Unsqueezable
-/// };
-///
-/// // Create model and tokens
-/// let model = MyAutoregressiveModel::new();
-/// let stop_token = create_stop_token();
-/// let padding_token = create_padding_token();
-///
-/// // Create the inference engine with batch size 4
-/// let inference = AutoregressiveBatchInference::<Tensor, 4>::new(
-///     model,
-///     &stop_token,
-///     &padding_token
-/// );
-///
-/// // Use the engine to process generation requests
-/// async fn generate(inference: &AutoregressiveBatchInference<Tensor, 4>, input: Tensor) {
-///     let mut stream = inference.run(input).await;
-///
-///     // Process generated tokens as they become available
-///     while let Some(token) = stream.next().await {
-///         println!("Generated token: {}", token);
-///     }
-/// }
-/// ```
+
 pub struct AutoregressiveBatchInference<B, const S: usize>
 where
     B: Backend + Unsqueezable
