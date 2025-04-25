@@ -30,6 +30,37 @@ use super::item_stream::ItemStream;
 ///   for subsequent generation steps
 /// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
 ///
+/// ```rust
+/// # use std::io;
+/// use hibachi::autoregressive::Autoregressive;
+/// use candle_core::{DType, Device, Tensor};
+/// use futures::StreamExt;
+/// use async_trait::async_trait;
+///
+///
+/// pub struct Model {}
+///
+/// #[async_trait]
+/// impl Autoregressive<Tensor> for Model {
+///
+///     async fn forward(&self, tensor: Tensor) -> Tensor {
+///         // Extract the dimensions we need
+///         let batch_size = tensor.dims()[0];
+///         Tensor::ones(&[batch_size], tensor.dtype(), tensor.device()).unwrap()
+///     }
+/// }
+///
+/// # #[tokio::main]
+/// # async fn main() -> io::Result<()> {
+/// let device = Device::Cpu;
+/// let model = Model {};
+///
+/// let input = Tensor::zeros(&[3], DType::U8, &device).expect("creates start token");
+/// let output = model.forward(input).await;
+/// # Ok(())
+/// # }
+/// ```
+///
 /// ## Usage Context
 ///
 /// This trait is primarily used by the batching engine to coordinate efficient

@@ -22,8 +22,10 @@ use super::item::Item;
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```rust
+/// # use std::io;
 /// use hibachi::feedforward::Feedforward;
+/// use candle_core::{Tensor, DType, Device};
 /// use async_trait::async_trait;
 ///
 /// struct MyModel {
@@ -33,10 +35,21 @@ use super::item::Item;
 /// #[async_trait]
 /// impl Feedforward<Tensor, Tensor> for MyModel {
 ///     async fn forward(&self, input: Tensor) -> Tensor {
-///         // Perform matrix multiplication or other operations
-///         input.matmul(&self.weights)
+///         input.matmul(&self.weights).unwrap()
 ///     }
 /// }
+///
+/// # #[tokio::main]
+/// # async fn main() -> io::Result<()> {
+/// let device = Device::Cpu;
+/// let model = MyModel { weights: Tensor::ones(&[64, 10], DType::F16, &device).unwrap() };
+///
+/// // Note the extra batch dimension. Normally the batcher handles this dimension
+/// let input = Tensor::ones(&[1, 64], DType::F16, &device).expect("creates start token");
+/// let output = model.forward(input).await;
+///
+/// # Ok(())
+/// # }
 /// ```
 #[async_trait]
 pub trait Feedforward<B, O> where B: Backend + Unsqueezable, O: Backend

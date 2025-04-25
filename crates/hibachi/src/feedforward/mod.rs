@@ -18,11 +18,12 @@
 //!
 //! ## Usage Example
 //!
-//! ```ignore
-//! use hibachi::feedforward::{Feedforward, FeedforwardBatcher, FeedforwardBatchInference};
+//! ```rust
+//! # use std::io;
+//! use hibachi::feedforward::*;
+//! use candle_core::{Tensor, DType, Device};
 //! use async_trait::async_trait;
 //!
-//! // 1. Define a model that implements the Feedforward trait
 //! struct MyModel {
 //!     weights: Tensor,
 //! }
@@ -30,24 +31,24 @@
 //! #[async_trait]
 //! impl Feedforward<Tensor, Tensor> for MyModel {
 //!     async fn forward(&self, input: Tensor) -> Tensor {
-//!         // Model implementation that processes batched inputs
-//!         input.matmul(&self.weights)
+//!         input.matmul(&self.weights).unwrap()
 //!     }
 //! }
 //!
-//! // 2. Create a batcher with your model
-//! let model = MyModel { weights: Tensor::ones(vec![64, 10]) };
+//! # #[tokio::main]
+//! # async fn main() -> io::Result<()> {
+//! let device = Device::Cpu;
+//! let model = MyModel { weights: Tensor::ones(&[64, 10], DType::F16, &device).unwrap() };
+//! // Batcher with max batch size of 16
 //! let batcher = FeedforwardBatchInference::<Tensor, Tensor, 16>::new(model);
 //!
-//! // 3. Submit inference requests and receive results
-//! async fn run_inference(batcher: &impl FeedforwardBatcher<Tensor, Tensor>) {
-//!     let input = Tensor::ones(vec![64]);
-//!     let result_item = batcher.run(input).await;
+//! // Notice the singular dimension
+//! let input = Tensor::ones(&[64], DType::F16, &device).expect("creates start token");
+//! let result_item = batcher.run(input).await;
 //!
-//!     // Await the result
-//!     let output = result_item.await.unwrap();
-//!     println!("Result shape: {:?}", output.shape());
-//! }
+//! let output = result_item.await.unwrap();
+//! # Ok(())
+//! # }
 //! ```
 
 

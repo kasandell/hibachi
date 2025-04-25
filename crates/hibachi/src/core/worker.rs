@@ -7,38 +7,6 @@ use tokio::{task::JoinHandle, sync::Notify};
 ///
 /// This struct provides a convenient way to spawn, manage, and gracefully shut down
 /// long-running background tasks in the Tokio runtime.
-///
-/// # Example
-///
-/// ```ignore
-/// use hibachi::core::batch::BatchInferenceEngine;
-/// use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-/// use tokio::sync::Notify;
-/// use std::time::Duration;
-///
-/// async fn example() {
-///     let worker = BatchWorkerHandle::new(|running, notifier| {
-///         tokio::spawn(async move {
-///             while running.load(Ordering::SeqCst) {
-///                 // Process batch of work
-///                 println!("Working...");
-///
-///                 // Wait for next notification or timeout
-///                 tokio::select! {
-///                     _ = notifier.notified() => println!("Notified!"),
-///                     _ = tokio::time::sleep(Duration::from_secs(5)) => println!("Timeout"),
-///                 }
-///             }
-///             println!("Worker stopped");
-///         })
-///     });
-///
-///     // Notify the worker to process a batch
-///     worker.notify();
-///
-///     // Worker will be automatically shut down when dropped
-/// }
-/// ```
 pub struct BatchWorkerHandle {
     /// Flag indicating whether the background task should continue running
     running: Arc<AtomicBool>,

@@ -171,7 +171,6 @@ where
 mod tests {
     use super::*;
     use tokio::test;
-    use std::fmt;
     use async_trait::async_trait;
     use futures::StreamExt;
     use tokio::time::{sleep, Duration};
@@ -206,15 +205,6 @@ mod tests {
             // Return output with batch dimension collapsed
             MockTensor::new(vec![batch_size], output_value)
         }
-    }
-
-    // Helper method to collect all items from a stream
-    async fn collect_all<T>(mut stream: ItemStream<T>) -> Vec<T> {
-        let mut results = Vec::new();
-        while let Some(item) = stream.next().await {
-            results.push(item);
-        }
-        results
     }
 
     #[test]
@@ -316,17 +306,13 @@ mod tests {
         // Try to collect any results - in a real test, we'd collect all,
         // but here we just verify the system is operational
         let mut received_tokens = 0;
-        let mut received_stop = false;
         let mut stream_clone = stream;
 
         // Try to get a few tokens with a timeout
         for _ in 0..5 {
             match tokio::time::timeout(Duration::from_millis(100), stream_clone.next()).await {
-                Ok(Some(token)) => {
+                Ok(Some(_token)) => {
                     received_tokens += 1;
-                    if token.value == 99 {
-                        received_stop = true;
-                    }
                 }
                 Ok(None) => break, // Stream ended
                 Err(_) => break,   // Timeout

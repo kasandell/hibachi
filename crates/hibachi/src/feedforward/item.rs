@@ -83,9 +83,10 @@ impl<T> Future for Item<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
     use tokio::sync::oneshot;
 
-    #[tokio::test]
+    #[test]
     async fn test_item_successful_receive() {
         // Create a channel and an Item
         let (tx, rx) = oneshot::channel();
@@ -114,7 +115,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_as_ref() {
         // Create a channel and an Item
         let (tx, rx) = oneshot::channel::<i32>();
@@ -127,7 +128,7 @@ mod tests {
         drop(tx);
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_future_behavior() {
         // Create a channel and an Item
         let (tx, rx) = oneshot::channel();

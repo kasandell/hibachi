@@ -263,13 +263,7 @@ mod tests {
         let item1 = QueueItem::new(String::from("test1"), 5, tx1);
 
         // Create a second item with the same ID (need to use internal structure to force this)
-        let id = item1.id();
-        let mut item2 = QueueItem::new(String::from("test2"), 10, tx2);
-
-        // Using reflection to set the ID (in a real test you might need another approach)
-        // For this example, we'll create a helper method in QueueItem to set the ID for testing
-        // This test assumes such a method exists or uses a different approach
-        // set_id_for_test(&mut item2, id);
+        let item2 = QueueItem::new(String::from("test2"), 10, tx2);
 
         // For this test, we'll just check that an item equals itself
         assert_eq!(item1, item1);

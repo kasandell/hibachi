@@ -29,18 +29,10 @@
 //!
 //! ```rust
 //! # use std::io;
-//! use hibachi::{
-//!     autoregressive::AutoregressiveBatchInference,
-//!     autoregressive::Autoregressive,
-//!     backend::Backend,
-//!     backend::Unsqueezable
-//! };
-//! use hibachi::autoregressive::AutoregressiveBatcher;
+//! use hibachi::autoregressive::*;
 //! use candle_core::{DType, Device, Tensor};
 //! use futures::StreamExt;
 //! use async_trait::async_trait;
-//!
-//!
 //!
 //! pub struct Model {}
 //!
@@ -55,7 +47,6 @@
 //! impl Autoregressive<Tensor> for Model {
 //!
 //!     async fn forward(&self, tensor: Tensor) -> Tensor {
-//!         // Extract the dimensions we need
 //!         let batch_size = tensor.dims()[0];
 //!         Tensor::ones(&[batch_size], tensor.dtype(), tensor.device()).unwrap()
 //!     }
@@ -66,38 +57,18 @@
 //!
 //! let device = Device::Cpu;
 //! // will be of rank + 1
-//! let stop_token = Tensor::ones(
-//!     &[1],
-//!     DType::U8,
-//!     &device
-//! ).unwrap();
+//! let stop_token = Tensor::ones(&[1], DType::U8, &device).unwrap();
+//! let padding_token = Tensor::zeros(&[1], DType::U8, &device).unwrap();
 //!
-//! let padding_token = Tensor::zeros(
-//!     &[1],
-//!     DType::U8,
-//!     &device
-//! ).unwrap();
-//!
-//! // Create model and tokens
 //! let model = Model::new();
 //!
 //! // Create the inference engine with batch size 4
-//! let inference = AutoregressiveBatchInference::<Tensor, 4>::new(
-//!     model,
-//!     &stop_token,
-//!     &padding_token
-//! );
+//! let inference = AutoregressiveBatchInference::<Tensor, 4>::new(model, &stop_token, &padding_token);
 //!
-//! let input = Tensor::zeros(
-//!     &[3],
-//!     DType::U8,
-//!     &device,
-//!  ).expect("creates start token");
-//!
-//! // Use the engine to process generation requests
-//! let mut stream = inference.run(input).await;
+//! let input = Tensor::zeros(&[3], DType::U8, &device).expect("creates start token");
 //!
 //! // Process generated tokens as they become available
+//! let mut stream = inference.run(input).await;
 //! while let Some(token) = stream.next().await {
 //!     println!("Generated token: {}", token);
 //! }
