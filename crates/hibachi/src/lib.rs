@@ -32,24 +32,24 @@
 //!
 //! ### Backend Traits
 //!
-//! The `Backend` and `Unsqueezable` traits define the interface that any tensor
+//! The [`backend::Backend`] and [`backend::Unsqueezable`] traits define the interface that any tensor
 //! implementation must satisfy to work with the library. This allows the core
 //! batching logic to remain independent of the specific tensor implementation.
 //!
 //! ### Autoregressive Processing
 //!
-//! The `Autoregressive` trait defines the interface for models that generate
-//! outputs sequentially, while the `AutoregressiveBatcher` trait encapsulates
+//! The [`autoregressive::Autoregressive`] trait defines the interface for models that generate
+//! outputs sequentially, while the [`autoregressive::AutoregressiveBatcher`] trait encapsulates
 //! the logic for efficiently batching multiple generation requests. We provide a
-//! `AutoregressiveBatchInference` which implements the `AutoregressiveBatcher`
+//! [`autoregressive::AutoregressiveBatchInference`] which implements the [`autoregressive::AutoregressiveBatcher`]
 //! trait out of the box.
 //!
 //! ### Feedforward Processing
 //!
-//!  The `Feedforward` trait defines the interface for models that generate
-//!  outputs in a single pass, while the `FeedforwardBatcher` trait encapsulates
+//!  The [`feedforward::Feedforward`] trait defines the interface for models that generate
+//!  outputs in a single pass, while the [`feedforward::FeedforwardBatcher`] trait encapsulates
 //!  the logic for efficiently batching multiple generation requests. We provide a
-//! `FeedforwardBatchInference` which implements the `FeedforwardBatcher`
+//! [`feedforward::FeedforwardBatchInference`] which implements the [`feedforward::FeedforwardBatcher`]
 //! trait out of the box.
 //!
 //! ## Features
@@ -65,7 +65,7 @@
 //! allocate batch slots. When sequences complete (by generating a stop token),
 //! they are automatically removed from the batch to make room for waiting requests.
 //!
-//! Tensor operations are abstracted through the `Backend` trait, allowing for
+//! Tensor operations are abstracted through the [`backend::Backend`] trait, allowing for
 //! different tensor implementations to be used without changing the core batching logic.
 //!
 

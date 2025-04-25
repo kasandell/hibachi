@@ -2,25 +2,9 @@ use async_trait::async_trait;
 use crate::backend::{Backend, Unsqueezable};
 use super::item::Item;
 
+/// # Feedforward
+///
 /// Defines a feed-forward model interface that processes tensors in a single pass.
-///
-/// This trait represents models that take an input tensor and produce an output
-/// tensor in a single forward pass, without autoregressive or iterative behavior.
-/// Typical implementations include classification models, encoders, and transformations.
-///
-/// # Type Parameters
-///
-/// * `B` - The input tensor type that implements [`Backend`] and [`Unsqueezable`]
-/// * `O` - The output tensor type that implements [`Backend`]
-///
-/// # Implementation Notes
-///
-/// Implementations should:
-/// * Handle batched inputs with the first dimension as the batch dimension
-/// * Preserve the batch structure in outputs
-/// * Be thread-safe and non-blocking
-///
-/// # Example
 ///
 /// ```rust
 /// # use std::io;
@@ -51,6 +35,23 @@ use super::item::Item;
 /// # Ok(())
 /// # }
 /// ```
+///
+/// This trait represents models that take an input tensor and produce an output
+/// tensor in a single forward pass, without autoregressive or iterative behavior.
+/// Typical implementations include classification models, encoders, and transformations.
+///
+/// # Type Parameters
+///
+/// * `B` - The input tensor type that implements [`Backend`] and [`Unsqueezable`]
+/// * `O` - The output tensor type that implements [`Backend`]
+///
+/// # Implementation Notes
+///
+/// Implementations should:
+/// * Handle batched inputs with the first dimension as the batch dimension
+/// * Preserve the batch structure in outputs
+/// * Be thread-safe and non-blocking
+///
 #[async_trait]
 pub trait Feedforward<B, O> where B: Backend + Unsqueezable, O: Backend
 {

@@ -2,31 +2,6 @@
 //!
 //! A module for efficient batched processing of autoregressive model inference.
 //!
-//! ## Overview
-//!
-//! This module provides a framework for optimizing autoregressive model inference
-//! by dynamically batching multiple generation requests. Autoregressive models
-//! generate output tokens sequentially, with each token depending on previously
-//! generated ones. This architecture enables efficient resource utilization
-//! when handling multiple concurrent generation requests.
-//!
-//! ## Key Components
-//!
-//! * [`Autoregressive`] - A trait for models that support autoregressive generation
-//! * [`AutoregressiveBatcher`] - A trait for components that manage batched inference
-//! * [`AutoregressiveBatchInference`] - An implementation that provides dynamic batching
-//!
-//! ## Features
-//!
-//! - **Dynamic Batching**: Efficiently groups multiple requests into optimal batches
-//! - **Resource Management**: Ensures bounded memory usage during inference
-//! - **Streaming Results**: Returns generated tokens as they become available
-//! - **Efficient Tensor Handling**: Manages padding and sequence management automatically
-//! - **Asynchronous Processing**: Non-blocking architecture for concurrent operation
-//!
-//!
-//! # Example
-//!
 //! ```rust
 //! # use std::io;
 //! use hibachi::autoregressive::*;
@@ -76,6 +51,30 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//!
+//! ## Overview
+//!
+//! This module provides a framework for optimizing autoregressive model inference
+//! by dynamically batching multiple generation requests. Autoregressive models
+//! generate output tokens sequentially, with each token depending on previously
+//! generated ones. This architecture enables efficient resource utilization
+//! when handling multiple concurrent generation requests.
+//!
+//! ## Key Components
+//!
+//! * [`Autoregressive`] - A trait for models that support autoregressive generation
+//! * [`AutoregressiveBatcher`] - A trait for components that manage batched inference
+//! * [`AutoregressiveBatchInference`] - An implementation that provides dynamic batching
+//!
+//! ## Features
+//!
+//! - **Dynamic Batching**: Efficiently groups multiple requests into optimal batches
+//! - **Resource Management**: Ensures bounded memory usage during inference
+//! - **Streaming Results**: Returns generated tokens as they become available
+//! - **Efficient Tensor Handling**: Manages padding and sequence management automatically
+//! - **Asynchronous Processing**: Non-blocking architecture for concurrent operation
+//!
 //!
 //! ## Implementation Details
 //!

@@ -2,22 +2,6 @@
 //!
 //! This module provides infrastructure for efficient batch processing of feed-forward models.
 //!
-//! ## Overview
-//!
-//! Feed-forward models process inputs in a single pass without autoregressive behavior.
-//! This module enables dynamic batching for such models, allowing multiple inference
-//! requests to be processed together for improved throughput and resource utilization.
-//!
-//! ## Components
-//!
-//! The module consists of the following key components:
-//!
-//! - **Traits**:
-//!   - [`Feedforward`]: Defines the interface for feed-forward model implementations
-//!   - [`FeedforwardBatcher`]: Defines the interface for submitting inference requests
-//!
-//! ## Usage Example
-//!
 //! ```rust
 //! # use std::io;
 //! use hibachi::feedforward::*;
@@ -50,7 +34,21 @@
 //! # Ok(())
 //! # }
 //! ```
-
+//!
+//! ## Overview
+//!
+//! Feed-forward models process inputs in a single pass without autoregressive behavior.
+//! This module enables dynamic batching for such models, allowing multiple inference
+//! requests to be processed together for improved throughput and resource utilization.
+//!
+//! ## Components
+//!
+//! The module consists of the following key components:
+//!
+//! - **Traits**:
+//!   - [`Feedforward`]: Defines the interface for feed-forward model implementations
+//!   - [`FeedforwardBatcher`]: Defines the interface for submitting inference requests
+//!
 
 mod batcher;
 mod core_trait;

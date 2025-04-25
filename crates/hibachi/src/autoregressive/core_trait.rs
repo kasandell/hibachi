@@ -5,31 +5,6 @@ use super::item_stream::ItemStream;
 /// # Autoregressive
 ///
 /// A trait for models that support autoregressive generation with batched processing.
-///
-/// This trait defines the core interface for models that generate output tokens
-/// sequentially based on previously generated tokens. It is specifically designed
-/// for use with the batched inference engine, which handles the mechanics of
-/// efficiently processing multiple generation requests concurrently.
-///
-/// ## Input/Output Dimensions
-///
-/// The expected input dimensions are `(batch, seq, **tok_dimensions)`, where:
-/// - `batch`: The batch size (number of sequences being processed)
-/// - `seq`: The sequence length (number of tokens in each sequence)
-/// - `**tok_dimensions`: Any additional dimensions describing token representations
-///
-/// The output dimensions are `(batch, **tok_dimensions)`, representing the next token
-/// for each sequence in the batch.
-///
-/// ## Implementation Notes
-///
-/// When implementing this trait:
-/// - The input tensor includes the full context of previously generated tokens
-/// - The model should return logits or representations for the next token only
-/// - The batching engine will automatically append generated tokens to the input
-///   for subsequent generation steps
-/// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
-///
 /// ```rust
 /// # use std::io;
 /// use hibachi::autoregressive::Autoregressive;
@@ -60,6 +35,31 @@ use super::item_stream::ItemStream;
 /// # Ok(())
 /// # }
 /// ```
+///
+/// This trait defines the core interface for models that generate output tokens
+/// sequentially based on previously generated tokens. It is specifically designed
+/// for use with the batched inference engine, which handles the mechanics of
+/// efficiently processing multiple generation requests concurrently.
+///
+/// ## Input/Output Dimensions
+///
+/// The expected input dimensions are `(batch, seq, **tok_dimensions)`, where:
+/// - `batch`: The batch size (number of sequences being processed)
+/// - `seq`: The sequence length (number of tokens in each sequence)
+/// - `**tok_dimensions`: Any additional dimensions describing token representations
+///
+/// The output dimensions are `(batch, **tok_dimensions)`, representing the next token
+/// for each sequence in the batch.
+///
+/// ## Implementation Notes
+///
+/// When implementing this trait:
+/// - The input tensor includes the full context of previously generated tokens
+/// - The model should return logits or representations for the next token only
+/// - The batching engine will automatically append generated tokens to the input
+///   for subsequent generation steps
+/// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
+///
 ///
 /// ## Usage Context
 ///
