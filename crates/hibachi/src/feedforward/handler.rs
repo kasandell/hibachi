@@ -114,9 +114,10 @@ where B: Backend + Unsqueezable, O: Backend,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
     use std::sync::Arc;
     use tokio::sync::oneshot;
-    use crate::backend::{Backend, Unsqueezable};
+    use crate::backend::{Backend};
     use crate::backend::mock_tensor::MockTensor;
     use crate::feedforward::core_trait::Feedforward;
     use crate::feedforward::queue_item::QueueItem;
@@ -130,7 +131,7 @@ mod tests {
         async fn forward(&self, input: MockTensor) -> MockTensor {
             // Double the value, but keep the shape
             // Remove the batch dimension (first dimension) for the output
-            let mut shape = input.shape();
+            let shape = input.shape();
             let value = input.value * 2;
 
             // For our tests, we'll just keep the same shape but double the value
@@ -154,7 +155,7 @@ mod tests {
         assert!(model_input.is_none());
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_make_batch_input_single() {
         let handler = FeedForwardHandler {
             _marker: PhantomData,
@@ -183,7 +184,7 @@ mod tests {
         assert_eq!(input.value, 5);
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_make_batch_input_multiple() {
         let handler = FeedForwardHandler {
             _marker: PhantomData,
@@ -216,7 +217,7 @@ mod tests {
         assert_eq!(input.value, 5);
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_forward() {
         let handler = FeedForwardHandler {
             _marker: PhantomData,
@@ -233,7 +234,7 @@ mod tests {
         assert_eq!(output.shape(), vec![2, 3, 4]);
     }
 
-    #[tokio::test]
+    #[test]
     async fn test_handle_outputs() {
         let handler = FeedForwardHandler {
             _marker: PhantomData,

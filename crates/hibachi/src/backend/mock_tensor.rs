@@ -54,7 +54,7 @@ impl Backend for MockTensor {
         result
     }
 
-    fn slice(&self, dimension: usize, seq_start_idx: usize, len: usize) -> Self {
+    fn slice(&self, dimension: usize, _seq_start_idx: usize, len: usize) -> Self {
         let mut new_shape = self.shape.clone();
         new_shape[dimension] = len;
         MockTensor::new(new_shape, self.value)

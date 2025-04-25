@@ -2,6 +2,57 @@
 //!
 //! A module for efficient batched processing of autoregressive model inference.
 //!
+//! ```rust
+//! # use std::io;
+//! use hibachi::autoregressive::*;
+//! use candle_core::{DType, Device, Tensor};
+//! use futures::StreamExt;
+//! use async_trait::async_trait;
+//!
+//! pub struct Model {}
+//!
+//! impl Model {
+//!     pub fn new() -> Self  {
+//!         Self {
+//!         }
+//!     }
+//! }
+//!
+//! #[async_trait]
+//! impl Autoregressive<Tensor> for Model {
+//!
+//!     async fn forward(&self, tensor: Tensor) -> Tensor {
+//!         let batch_size = tensor.dims()[0];
+//!         Tensor::ones(&[batch_size], tensor.dtype(), tensor.device()).unwrap()
+//!     }
+//! }
+//!
+//! # #[tokio::main]
+//! # async fn main() -> io::Result<()> {
+//!
+//! let device = Device::Cpu;
+//! // will be of rank + 1
+//! let stop_token = Tensor::ones(&[1], DType::U8, &device).unwrap();
+//! let padding_token = Tensor::zeros(&[1], DType::U8, &device).unwrap();
+//!
+//! let model = Model::new();
+//!
+//! // Create the inference engine with batch size 4
+//! let inference = AutoregressiveBatchInference::<Tensor, 4>::new(model, &stop_token, &padding_token);
+//!
+//! let input = Tensor::zeros(&[3], DType::U8, &device).expect("creates start token");
+//!
+//! // Process generated tokens as they become available
+//! let mut stream = inference.run(input).await;
+//! while let Some(token) = stream.next().await {
+//!     println!("Generated token: {}", token);
+//! }
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
+//!
 //! ## Overview
 //!
 //! This module provides a framework for optimizing autoregressive model inference
@@ -24,48 +75,6 @@
 //! - **Efficient Tensor Handling**: Manages padding and sequence management automatically
 //! - **Asynchronous Processing**: Non-blocking architecture for concurrent operation
 //!
-//! ## Example Usage
-//!
-//! ```ignore
-//! use hibachi::autoregressive::{Autoregressive, AutoregressiveBatcher, AutoregressiveBatchInference};
-//! use candle_core::{DType, Device, Tensor};
-//! use futures::StreamExt;
-//!
-//! // Create your autoregressive model
-//! let model = MyModel::new();
-//!
-//! let device = Device::Cpu;
-//! // Define stop and padding tokens of rank 1 higher than needed (rank 1 for scalars)
-//! let stop_token = Tensor::ones(
-//!         &[1],
-//!         DType::U8,
-//!         &device
-//!     ).unwrap();
-//!
-//!     let padding_token = Tensor::zeros(
-//!         &[1],
-//!         DType::U8,
-//!         &device
-//!     ).unwrap();
-//!
-//! // Create the batched inference engine with a max batch size of 16
-//! let inference_engine = AutoregressiveBatchInference::<Tensor, 16>::new(
-//!     model,
-//!     &stop_token,
-//!     &padding_token
-//! );
-//!
-//! // Process a generation request
-//! async fn generate(engine: &impl AutoregressiveBatcher<Tensor, Tensor>, input: Tensor) {
-//!     let mut stream = engine.run(input).await;
-//!
-//!     // Consume generated tokens as they become available
-//!     while let Some(token) = stream.next().await {
-//!         // Process the token
-//!         println!("Generated token: {:?}", token);
-//!     }
-//! }
-//! ```
 //!
 //! ## Implementation Details
 //!

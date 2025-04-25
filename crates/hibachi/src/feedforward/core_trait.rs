@@ -2,7 +2,39 @@ use async_trait::async_trait;
 use crate::backend::{Backend, Unsqueezable};
 use super::item::Item;
 
+/// # Feedforward
+///
 /// Defines a feed-forward model interface that processes tensors in a single pass.
+///
+/// ```rust
+/// # use std::io;
+/// use hibachi::feedforward::Feedforward;
+/// use candle_core::{Tensor, DType, Device};
+/// use async_trait::async_trait;
+///
+/// struct MyModel {
+///     weights: Tensor,
+/// }
+///
+/// #[async_trait]
+/// impl Feedforward<Tensor, Tensor> for MyModel {
+///     async fn forward(&self, input: Tensor) -> Tensor {
+///         input.matmul(&self.weights).unwrap()
+///     }
+/// }
+///
+/// # #[tokio::main]
+/// # async fn main() -> io::Result<()> {
+/// let device = Device::Cpu;
+/// let model = MyModel { weights: Tensor::ones(&[64, 10], DType::F16, &device).unwrap() };
+///
+/// // Note the extra batch dimension. Normally the batcher handles this dimension
+/// let input = Tensor::ones(&[1, 64], DType::F16, &device).expect("creates start token");
+/// let output = model.forward(input).await;
+///
+/// # Ok(())
+/// # }
+/// ```
 ///
 /// This trait represents models that take an input tensor and produce an output
 /// tensor in a single forward pass, without autoregressive or iterative behavior.
@@ -20,24 +52,6 @@ use super::item::Item;
 /// * Preserve the batch structure in outputs
 /// * Be thread-safe and non-blocking
 ///
-/// # Example
-///
-/// ```ignore
-/// use hibachi::feedforward::Feedforward;
-/// use async_trait::async_trait;
-///
-/// struct MyModel {
-///     weights: Tensor,
-/// }
-///
-/// #[async_trait]
-/// impl Feedforward<Tensor, Tensor> for MyModel {
-///     async fn forward(&self, input: Tensor) -> Tensor {
-///         // Perform matrix multiplication or other operations
-///         input.matmul(&self.weights)
-///     }
-/// }
-/// ```
 #[async_trait]
 pub trait Feedforward<B, O> where B: Backend + Unsqueezable, O: Backend
 {

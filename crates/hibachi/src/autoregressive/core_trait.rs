@@ -5,6 +5,36 @@ use super::item_stream::ItemStream;
 /// # Autoregressive
 ///
 /// A trait for models that support autoregressive generation with batched processing.
+/// ```rust
+/// # use std::io;
+/// use hibachi::autoregressive::Autoregressive;
+/// use candle_core::{DType, Device, Tensor};
+/// use futures::StreamExt;
+/// use async_trait::async_trait;
+///
+///
+/// pub struct Model {}
+///
+/// #[async_trait]
+/// impl Autoregressive<Tensor> for Model {
+///
+///     async fn forward(&self, tensor: Tensor) -> Tensor {
+///         // Extract the dimensions we need
+///         let batch_size = tensor.dims()[0];
+///         Tensor::ones(&[batch_size], tensor.dtype(), tensor.device()).unwrap()
+///     }
+/// }
+///
+/// # #[tokio::main]
+/// # async fn main() -> io::Result<()> {
+/// let device = Device::Cpu;
+/// let model = Model {};
+///
+/// let input = Tensor::zeros(&[3], DType::U8, &device).expect("creates start token");
+/// let output = model.forward(input).await;
+/// # Ok(())
+/// # }
+/// ```
 ///
 /// This trait defines the core interface for models that generate output tokens
 /// sequentially based on previously generated tokens. It is specifically designed
@@ -29,6 +59,7 @@ use super::item_stream::ItemStream;
 /// - The batching engine will automatically append generated tokens to the input
 ///   for subsequent generation steps
 /// - The implementation should be compatible with the [`Backend`] and [`Unsqueezable`] constraints
+///
 ///
 /// ## Usage Context
 ///

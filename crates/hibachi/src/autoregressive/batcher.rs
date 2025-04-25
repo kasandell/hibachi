@@ -23,39 +23,7 @@ use super::{Autoregressive, AutoregressiveBatcher};
 ///
 /// * `B` - The tensor backend type, which must implement both [`Backend`] and [`Unsqueezable`]
 /// * `S` - A const generic parameter that defines the maximum batch size
-///
-/// # Example
-///
-/// ```ignore
-/// use hibachi::{
-///     AutoregressiveBatchInference,
-///     Autoregressive,
-///     Backend,
-///     Unsqueezable
-/// };
-///
-/// // Create model and tokens
-/// let model = MyAutoregressiveModel::new();
-/// let stop_token = create_stop_token();
-/// let padding_token = create_padding_token();
-///
-/// // Create the inference engine with batch size 4
-/// let inference = AutoregressiveBatchInference::<Tensor, 4>::new(
-///     model,
-///     &stop_token,
-///     &padding_token
-/// );
-///
-/// // Use the engine to process generation requests
-/// async fn generate(inference: &AutoregressiveBatchInference<Tensor, 4>, input: Tensor) {
-///     let mut stream = inference.run(input).await;
-///
-///     // Process generated tokens as they become available
-///     while let Some(token) = stream.next().await {
-///         println!("Generated token: {}", token);
-///     }
-/// }
-/// ```
+
 pub struct AutoregressiveBatchInference<B, const S: usize>
 where
     B: Backend + Unsqueezable
@@ -203,7 +171,6 @@ where
 mod tests {
     use super::*;
     use tokio::test;
-    use std::fmt;
     use async_trait::async_trait;
     use futures::StreamExt;
     use tokio::time::{sleep, Duration};
@@ -238,15 +205,6 @@ mod tests {
             // Return output with batch dimension collapsed
             MockTensor::new(vec![batch_size], output_value)
         }
-    }
-
-    // Helper method to collect all items from a stream
-    async fn collect_all<T>(mut stream: ItemStream<T>) -> Vec<T> {
-        let mut results = Vec::new();
-        while let Some(item) = stream.next().await {
-            results.push(item);
-        }
-        results
     }
 
     #[test]
@@ -348,17 +306,13 @@ mod tests {
         // Try to collect any results - in a real test, we'd collect all,
         // but here we just verify the system is operational
         let mut received_tokens = 0;
-        let mut received_stop = false;
         let mut stream_clone = stream;
 
         // Try to get a few tokens with a timeout
         for _ in 0..5 {
             match tokio::time::timeout(Duration::from_millis(100), stream_clone.next()).await {
-                Ok(Some(token)) => {
+                Ok(Some(_token)) => {
                     received_tokens += 1;
-                    if token.value == 99 {
-                        received_stop = true;
-                    }
                 }
                 Ok(None) => break, // Stream ended
                 Err(_) => break,   // Timeout

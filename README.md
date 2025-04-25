@@ -179,3 +179,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Add first class support for KV Caching?, other performance boosts
 - [ ] Review performance of burn tensors
 - [ ] Benchmark
+- [ ] Publish README with image on cargo
+- [ ] Make unsqueezable feature guarded by autoregressive
+- [ ] Decide on final crate structure

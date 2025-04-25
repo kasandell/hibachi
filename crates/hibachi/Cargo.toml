@@ -13,6 +13,7 @@ publish = true
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+features = ["candle", "autoregressive"]
 
 [features]
 candle = ["dep:candle-core"]
@@ -29,20 +30,8 @@ async-trait = { workspace = true }
 uuid = { version = "1.16.0", features = ["v4"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["sync", "time", "rt", "test-util", "macros"] }
+tokio = { workspace = true, features = ["sync", "time", "rt", "test-util", "macros", "rt-multi-thread"] }
 burn = { workspace = true, features = ["ndarray"]}
 candle-core = { workspace = true }
 
-
-[[example]]
-name = "burn"
-path = "../../examples/burn-wgpu-backend"
-
-[[example]]
-name = "candle"
-path = "../../examples/candle-example"
-
-[[example]]
-name = "candle transformer"
-path = "../../examples/candle-transformer"
 
