@@ -10,7 +10,7 @@ edition = "2024"
 license = "MIT"
 readme = "README.md"
 version = "0.1.9"
-repository = "https://www.github.com/kasandell/hibachi"
+repository = "https://github.com/kasandell/hibachi"
 authors = [
     "Kyle Sandell"
 ]
